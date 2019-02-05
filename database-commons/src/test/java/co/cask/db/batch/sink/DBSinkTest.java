@@ -1,5 +1,5 @@
 /*
- * Copyright © 2015 Cask Data, Inc.
+ * Copyright © 2019 Cask Data, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -16,20 +16,21 @@
 
 package co.cask.db.batch.sink;
 
+import co.cask.DBProvider;
 import co.cask.DBRecord;
 import co.cask.cdap.api.data.format.StructuredRecord;
 import co.cask.cdap.api.data.schema.Schema;
 import co.cask.cdap.api.dataset.lib.KeyValue;
 import co.cask.cdap.etl.mock.common.MockEmitter;
-import com.google.common.base.Splitter;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import org.apache.hadoop.io.NullWritable;
 import org.junit.Assert;
 import org.junit.Test;
 
+import java.util.Collections;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * Tests for {@link DBSink}
@@ -38,12 +39,10 @@ public class DBSinkTest {
 
   @Test
   public void testIdentity() throws Exception {
-    final DBSink.DBSinkConfig config = new DBSink.DBSinkConfig();
-    config.columns = "ts,body";
+    final DBSink.DBSinkConfig config = new TestSinkConfig();
     config.tableName = "foo";
 
     DBSink sink = new DBSink(config);
-    sink.setColumns(ImmutableList.copyOf(Splitter.on(",").split(config.columns)));
 
     StructuredRecord input = StructuredRecord
       .builder(Schema.recordOf(
@@ -53,6 +52,12 @@ public class DBSinkTest {
       .set("ts", 123)
       .set("body", "sdfsdf")
       .build();
+
+    sink.setColumns(input.getSchema().getFields()
+                      .stream()
+                      .map(Schema.Field::getName)
+                      .collect(Collectors.toList())
+    );
 
     MockEmitter<KeyValue<DBRecord, NullWritable>> emitter = new MockEmitter<>();
     sink.transform(input, emitter);
@@ -65,12 +70,10 @@ public class DBSinkTest {
 
   @Test
   public void testDropColumn() throws Exception {
-    final DBSink.DBSinkConfig config = new DBSink.DBSinkConfig();
-    config.columns = "body,ts";
+    final DBSink.DBSinkConfig config = new TestSinkConfig();
     config.tableName = "foo";
 
     DBSink sink = new DBSink(config);
-    sink.setColumns(ImmutableList.copyOf(Splitter.on(",").split(config.columns)));
 
     StructuredRecord input = StructuredRecord
       .builder(Schema.recordOf(
@@ -83,6 +86,7 @@ public class DBSinkTest {
       .set("body", "sdfsdf")
       .build();
 
+
     StructuredRecord output = StructuredRecord
       .builder(Schema.recordOf(
         "foo",
@@ -91,6 +95,12 @@ public class DBSinkTest {
       .set("body", "sdfsdf")
       .set("ts", 123)
       .build();
+
+    sink.setColumns(output.getSchema().getFields()
+                      .stream()
+                      .map(Schema.Field::getName)
+                      .collect(Collectors.toList())
+    );
 
     MockEmitter<KeyValue<DBRecord, NullWritable>> emitter = new MockEmitter<>();
     sink.transform(input, emitter);
@@ -103,12 +113,10 @@ public class DBSinkTest {
 
   @Test
   public void testFailure() throws Exception {
-    final DBSink.DBSinkConfig config = new DBSink.DBSinkConfig();
-    config.columns = "body,ts,missing";
+    final DBSink.DBSinkConfig config = new TestSinkConfig();
     config.tableName = "foo";
 
     DBSink sink = new DBSink(config);
-    sink.setColumns(ImmutableList.copyOf(Splitter.on(",").split(config.columns)));
 
     StructuredRecord input = StructuredRecord
       .builder(Schema.recordOf(
@@ -136,5 +144,17 @@ public class DBSinkTest {
       fields.put(field.getName(), record.get(field.getName()));
     }
     return fields;
+  }
+
+  private class TestSinkConfig extends DBSink.DBSinkConfig {
+    @Override
+    public Map<String, String> getDBSpecificArguments() {
+      return Collections.emptyMap();
+    }
+
+    @Override
+    public DBProvider getDBProvider() {
+      return DBProvider.MYSQL;
+    }
   }
 }

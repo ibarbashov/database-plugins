@@ -21,21 +21,24 @@
         },
         {
           "widget-type": "textbox",
-          "label": "Plugin Name",
-          "name": "jdbcPluginName"
+          "label": "Host",
+          "name": "host",
+          "widget-attributes": {
+            "default": "localhost"
+          }
         },
         {
-          "widget-type": "textbox",
-          "label": "Plugin Type",
-          "name": "jdbcPluginType",
+          "widget-type": "number",
+          "label": "Port",
+          "name": "port",
           "widget-attributes": {
-            "default": "jdbc"
+            "default": "3306"
           }
         },
         {
           "widget-type": "textbox",
-          "label": "Connection String",
-          "name": "connectionString"
+          "label": "Database",
+          "name": "database"
         },
         {
           "widget-type": "textarea",
@@ -73,14 +76,33 @@
             "showDelimiter": "false",
             "key-placeholder": "Key",
             "value-placeholder": "Value",
-            "kv-delimiter": "=",
-            "delimiter": ";"
+            "kv-delimiter" : "=",
+            "delimiter" : ";"
           }
         },
         {
           "widget-type": "radio-group",
-          "label": "Enable Auto-Commit",
-          "name": "enableAutoCommit",
+          "label": "Auto reconnect",
+          "name": "autoReconnect",
+          "widget-attributes": {
+            "layout": "inline",
+            "default": "false",
+            "options": [
+              {
+                "id": "true",
+                "label": "True"
+              },
+              {
+                "id": "false",
+                "label": "False"
+              }
+            ]
+          }
+        },
+        {
+          "widget-type": "radio-group",
+          "label": "Allow multiple queries",
+          "name": "allowMultiQueries",
           "widget-attributes": {
             "layout": "inline",
             "default": "false",

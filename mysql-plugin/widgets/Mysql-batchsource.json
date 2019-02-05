@@ -2,7 +2,13 @@
   "metadata": {
     "spec-version": "1.5"
   },
-  "display-name": "Database",
+  "icon": {
+    "type": "inline",
+    "arguments": {
+      "data": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADIAAAAxCAYAAACYq/ofAAACC0lEQVRogd1YP0vDQBS/VgpuOrmKg1/ATKKDgzgpbe4ue8GSP3efQSi4iJuDbs4OfhMnF1dBEB1EipNaaOMQ0yZtcm3a9+7S/uCgNL3fn7zH5aWEEEIIl2FqOa0tsnAYDZFc1L8xbW96RKa7Gd8N10JAZTavUo6zotnlFKDiQXnXufhWtl89ONTodgKKtlDdE+Vtv1kNlS7QsbcdmfHOZ9hdKVcYLnu5RpjoEC6ulPuZ/E0c3U0EhwXAZUiY7OVeo25Luf+guTqsjugqf4uKaY7jIjzGWs1ya2DixsNwGRIm+mBcWdODFkDfxeEBsAfGWUgcms9Ii0ELM/liKkwVfECMgzDxDsZZSLjsnEaEmeibCcPl13JUBbO9qOiA8k4UxeLVVhVb7KMHOXF3UPgzxRaVX5vQgL9dRdNICyGh0VzXUxUuQ2KLL3QNLUGyRCDHfCru8cNkCWC8LBkPQv1rGB3xgRuGnm4qg2BUhcuQsOACjDclwOTTmGD8mQaPoFqpQPIHjHswrRJCiOOupYIkr0HCsmrpQOIWhnjsTgWXY9ewAN7GKkIdY4bWcUaHRtRqr7hCUA9JJdpVPdWhvo0r8I+oMm/YMhUwptGDBus5losjf2Ou/dnGn4HcaQQVZ+b+OoKG1hbCRnpkWcDWSoJ5n8tbnUbLMm1nfsRhHG/XtBUYLEWbxViqMHZw9wcF0sO0vUK9pwAAAABJRU5ErkJggg=="
+    }
+  },
+  "display-name": "Mysql",
   "configuration-groups": [
     {
       "label": "Basic",
@@ -17,21 +23,24 @@
         },
         {
           "widget-type": "textbox",
-          "label": "Plugin Name",
-          "name": "jdbcPluginName"
+          "label": "Host",
+          "name": "host",
+          "widget-attributes": {
+            "default": "localhost"
+          }
         },
         {
-          "widget-type": "textbox",
-          "label": "Plugin Type",
-          "name": "jdbcPluginType",
+          "widget-type": "number",
+          "label": "Port",
+          "name": "port",
           "widget-attributes": {
-            "default": "jdbc"
+            "default": "3306"
           }
         },
         {
           "widget-type": "textbox",
-          "label": "Connection String",
-          "name": "connectionString"
+          "label": "Database",
+          "name": "database"
         },
         {
           "widget-type": "textarea",
@@ -93,14 +102,14 @@
             "showDelimiter": "false",
             "key-placeholder": "Key",
             "value-placeholder": "Value",
-            "kv-delimiter": "=",
-            "delimiter": ";"
+            "kv-delimiter" : "=",
+            "delimiter" : ";"
           }
         },
         {
           "widget-type": "radio-group",
-          "label": "Enable Auto-Commit",
-          "name": "enableAutoCommit",
+          "label": "Auto reconnect",
+          "name": "autoReconnect",
           "widget-attributes": {
             "layout": "inline",
             "default": "false",
@@ -117,16 +126,11 @@
           }
         },
         {
-          "widget-type": "select",
-          "label": "Column Name Case",
-          "name": "columnNameCase",
+          "name": "maxRows",
+          "label": "Max rows",
+          "widget-type": "number",
           "widget-attributes": {
-            "values": [
-              "UPPER",
-              "lower",
-              "No change"
-            ],
-            "default": "No change"
+            "default": "0"
           }
         },
         {

@@ -47,14 +47,15 @@ public class DBManager implements Destroyable {
     Preconditions.checkArgument(!(config.user == null && config.password != null),
                                 "user is null. Please provide both user name and password if database requires " +
                                   "authentication. If not, please remove password and retry.");
-    Class<? extends Driver> jdbcDriverClass = pipelineConfigurer.usePluginClass(config.jdbcPluginType,
-                                                                                config.jdbcPluginName,
-                                                                                jdbcPluginId,
-                                                                                PluginProperties.builder().build());
+    Class<? extends Driver> jdbcDriverClass = pipelineConfigurer.usePluginClass(
+      config.getDBProvider().getJdbcPluginType(),
+      config.getDBProvider().getJdbcPluginName(),
+      jdbcPluginId, PluginProperties.builder().build());
     Preconditions.checkArgument(
       jdbcDriverClass != null, "Unable to load JDBC Driver class for plugin name '%s'. Please make sure that the " +
-        "plugin '%s' of type '%s' containing the driver has been installed correctly.", config.jdbcPluginName,
-      config.jdbcPluginName, config.jdbcPluginType);
+        "plugin '%s' of type '%s' containing the driver has been installed correctly.",
+      config.getDBProvider().getJdbcPluginName(),
+      config.getDBProvider().getJdbcPluginName(), config.getDBProvider().getJdbcPluginType());
   }
 
   public boolean tableExists(Class<? extends Driver> jdbcDriverClass, String tableName) {
@@ -66,7 +67,7 @@ public class DBManager implements Destroyable {
       throw Throwables.propagate(e);
     }
 
-    try (Connection connection = DriverManager.getConnection(config.connectionString,
+    try (Connection connection = DriverManager.getConnection(DBUtils.createConnectionString(config),
                                                              config.getConnectionArguments())) {
       DatabaseMetaData metadata = connection.getMetaData();
       try (ResultSet rs = metadata.getTables(null, null, tableName, null)) {
@@ -74,7 +75,7 @@ public class DBManager implements Destroyable {
       }
     } catch (SQLException e) {
       LOG.error("Exception while trying to check the existence of database table {} for connection {}.",
-                tableName, config.connectionString, e);
+                tableName, DBUtils.createConnectionString(config), e);
       throw Throwables.propagate(e);
     }
   }
@@ -85,8 +86,9 @@ public class DBManager implements Destroyable {
    */
   public void ensureJDBCDriverIsAvailable(Class<? extends Driver> jdbcDriverClass)
     throws IllegalAccessException, InstantiationException, SQLException {
-    driverCleanup = DBUtils.ensureJDBCDriverIsAvailable(jdbcDriverClass, config.connectionString,
-                                                        config.jdbcPluginType, config.jdbcPluginName);
+    driverCleanup = DBUtils.ensureJDBCDriverIsAvailable(jdbcDriverClass, DBUtils.createConnectionString(config),
+                                                        config.getDBProvider().getJdbcPluginType(),
+                                                        config.getDBProvider().getJdbcPluginName());
   }
 
   @Override

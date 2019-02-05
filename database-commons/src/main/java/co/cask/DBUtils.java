@@ -392,6 +392,15 @@ public final class DBUtils {
     }
   }
 
+  public static String createConnectionString(ConnectionConfig config) {
+    return createConnectionString(config.host, config.port, config.database, config.getDBProvider());
+  }
+
+  public static String createConnectionString(String host, int port, String database, DBProvider type) {
+    return type.getJdbcPluginType() + ":" + type.getJdbcPluginName() + "://"
+      + host + ":" + port + "/" + database;
+  }
+
   private DBUtils() {
     throw new AssertionError("Should not instantiate static utility class.");
   }

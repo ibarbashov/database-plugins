@@ -17,6 +17,7 @@
 package co.cask.db.batch.action;
 
 import co.cask.DBManager;
+import co.cask.DBUtils;
 
 import java.sql.Connection;
 import java.sql.Driver;
@@ -47,14 +48,8 @@ public class DBRun {
       dbManager.ensureJDBCDriverIsAvailable(driverClass);
 
       try (Connection connection = getConnection()) {
-        if (!config.enableAutoCommit) {
-          connection.setAutoCommit(false);
-        }
         try (Statement statement = connection.createStatement()) {
           statement.execute(config.query);
-          if (!config.enableAutoCommit) {
-            connection.commit();
-          }
         }
       }
     } finally {
@@ -63,6 +58,7 @@ public class DBRun {
   }
 
   private Connection getConnection() throws SQLException {
-    return DriverManager.getConnection(config.connectionString, config.getConnectionArguments());
+    return DriverManager.getConnection(
+      DBUtils.createConnectionString(config), config.getConnectionArguments());
   }
 }

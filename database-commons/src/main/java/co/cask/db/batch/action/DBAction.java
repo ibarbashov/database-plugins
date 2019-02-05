@@ -17,9 +17,6 @@
 package co.cask.db.batch.action;
 
 import co.cask.DBManager;
-import co.cask.cdap.api.annotation.Description;
-import co.cask.cdap.api.annotation.Name;
-import co.cask.cdap.api.annotation.Plugin;
 import co.cask.cdap.etl.api.PipelineConfigurer;
 import co.cask.cdap.etl.api.action.Action;
 import co.cask.cdap.etl.api.action.ActionContext;
@@ -29,11 +26,8 @@ import org.slf4j.LoggerFactory;
 import java.sql.Driver;
 
 /**
- * Action that runs a db command
+ * Action that runs a db command.
  */
-@Plugin(type = Action.PLUGIN_TYPE)
-@Name("Database")
-@Description("Action that runs a db command")
 public class DBAction extends Action {
   private static final Logger LOG = LoggerFactory.getLogger(DBAction.class);
   private static final String JDBC_PLUGIN_ID = "driver";

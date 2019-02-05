@@ -14,22 +14,16 @@
  * the License.
  */
 
-package co.cask.db.batch.action;
+package co.cask;
 
-import co.cask.ConnectionConfig;
-import co.cask.cdap.api.annotation.Description;
-import co.cask.cdap.api.annotation.Macro;
+import static co.cask.DBProvider.MYSQL;
 
 /**
- * Config for Actions running database commands
+ * Mysql config class representation.
  */
-public abstract class QueryConfig extends ConnectionConfig {
-
-  @Description("The database command to run.")
-  @Macro
-  public String query;
-
-  public QueryConfig() {
-    super();
+public interface MysqlConfig extends DBProviderAware {
+  @Override
+  default DBProvider getDBProvider() {
+    return MYSQL;
   }
 }
