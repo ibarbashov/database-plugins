@@ -14,22 +14,11 @@
  * the License.
  */
 
-package co.cask.db.batch.action;
-
-import co.cask.ConnectionConfig;
-import co.cask.cdap.api.annotation.Description;
-import co.cask.cdap.api.annotation.Macro;
+package co.cask;
 
 /**
- * Config for Actions running database commands
+ * Provides DB-specific driver name.
  */
-public abstract class QueryConfig extends ConnectionConfig {
-
-  @Description("The database command to run.")
-  @Macro
-  public String query;
-
-  public QueryConfig() {
-    super();
-  }
+public interface JDBCDriverNameProvider {
+  String getJdbcDriverName();
 }

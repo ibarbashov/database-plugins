@@ -16,7 +16,9 @@
 
 package co.cask.db.batch.action;
 
-import co.cask.DBManager;
+import co.cask.ConnectionConfig;
+import co.cask.util.DBUtils;
+import co.cask.util.DriverCleanup;
 
 import java.sql.Connection;
 import java.sql.Driver;
@@ -30,10 +32,12 @@ import java.sql.Statement;
 public class DBRun {
   private final QueryConfig config;
   private final Class<? extends Driver> driverClass;
+  private final String jdbcDriverName;
 
-  public DBRun(QueryConfig config, Class<? extends Driver> driverClass) {
+  public DBRun(QueryConfig config, String jdbcDriverName, Class<? extends Driver> driverClass) {
     this.config = config;
     this.driverClass = driverClass;
+    this.jdbcDriverName = jdbcDriverName;
   }
 
   /**
@@ -41,28 +45,27 @@ public class DBRun {
    * to use and which connection string to use come from the plugin configuration.
    */
   public void run() throws SQLException, InstantiationException, IllegalAccessException {
-    DBManager dbManager = new DBManager(config);
-
+    DriverCleanup driverCleanup = null;
     try {
-      dbManager.ensureJDBCDriverIsAvailable(driverClass);
+      driverCleanup = DBUtils.ensureJDBCDriverIsAvailable(driverClass,
+                                                          DBUtils.createConnectionString(config, jdbcDriverName),
+                                                          ConnectionConfig.JDBC_PLUGIN_TYPE,
+                                                          jdbcDriverName);
 
       try (Connection connection = getConnection()) {
-        if (!config.enableAutoCommit) {
-          connection.setAutoCommit(false);
-        }
         try (Statement statement = connection.createStatement()) {
           statement.execute(config.query);
-          if (!config.enableAutoCommit) {
-            connection.commit();
-          }
         }
       }
     } finally {
-      dbManager.destroy();
+      if (driverCleanup != null) {
+        driverCleanup.destroy();
+      }
     }
   }
 
   private Connection getConnection() throws SQLException {
-    return DriverManager.getConnection(config.connectionString, config.getConnectionArguments());
+    return DriverManager.getConnection(
+      DBUtils.createConnectionString(config, jdbcDriverName), config.getConnectionArguments());
   }
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright © 2016 Cask Data, Inc.
+ * Copyright © 2019 Cask Data, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -18,6 +18,8 @@ package co.cask;
 
 import org.junit.Assert;
 import org.junit.Test;
+
+import java.util.Map;
 
 /**
  * Tests for the db config.
@@ -48,6 +50,11 @@ public class DBConfigTest {
 
     TestDBConfig(String query) {
       this.query = cleanQuery(query);
+    }
+
+    @Override
+    public Map<String, String> getDBSpecificArguments() {
+      return null;
     }
   }
 }

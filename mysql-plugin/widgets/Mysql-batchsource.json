@@ -1,0 +1,179 @@
+{
+  "metadata": {
+    "spec-version": "1.5"
+  },
+  "icon": {
+    "type": "inline",
+    "arguments": {
+      "data": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADIAAAAxCAYAAACYq/ofAAACC0lEQVRogd1YP0vDQBS/VgpuOrmKg1/ATKKDgzgpbe4ue8GSP3efQSi4iJuDbs4OfhMnF1dBEB1EipNaaOMQ0yZtcm3a9+7S/uCgNL3fn7zH5aWEEEIIl2FqOa0tsnAYDZFc1L8xbW96RKa7Gd8N10JAZTavUo6zotnlFKDiQXnXufhWtl89ONTodgKKtlDdE+Vtv1kNlS7QsbcdmfHOZ9hdKVcYLnu5RpjoEC6ulPuZ/E0c3U0EhwXAZUiY7OVeo25Luf+guTqsjugqf4uKaY7jIjzGWs1ya2DixsNwGRIm+mBcWdODFkDfxeEBsAfGWUgcms9Ii0ELM/liKkwVfECMgzDxDsZZSLjsnEaEmeibCcPl13JUBbO9qOiA8k4UxeLVVhVb7KMHOXF3UPgzxRaVX5vQgL9dRdNICyGh0VzXUxUuQ2KLL3QNLUGyRCDHfCru8cNkCWC8LBkPQv1rGB3xgRuGnm4qg2BUhcuQsOACjDclwOTTmGD8mQaPoFqpQPIHjHswrRJCiOOupYIkr0HCsmrpQOIWhnjsTgWXY9ewAN7GKkIdY4bWcUaHRtRqr7hCUA9JJdpVPdWhvo0r8I+oMm/YMhUwptGDBus5losjf2Ou/dnGn4HcaQQVZ+b+OoKG1hbCRnpkWcDWSoJ5n8tbnUbLMm1nfsRhHG/XtBUYLEWbxViqMHZw9wcF0sO0vUK9pwAAAABJRU5ErkJggg=="
+    }
+  },
+  "display-name": "Mysql",
+  "configuration-groups": [
+    {
+      "label": "Basic",
+      "properties": [
+        {
+          "widget-type": "textbox",
+          "label": "Reference Name",
+          "name": "referenceName",
+          "widget-attributes": {
+            "placeholder": "Name used to identify this source for lineage"
+          }
+        },
+        {
+          "widget-type": "textbox",
+          "label": "Host",
+          "name": "host",
+          "widget-attributes": {
+            "default": "localhost"
+          }
+        },
+        {
+          "widget-type": "number",
+          "label": "Port",
+          "name": "port",
+          "widget-attributes": {
+            "default": "3306"
+          }
+        },
+        {
+          "widget-type": "textbox",
+          "label": "Database",
+          "name": "database"
+        },
+        {
+          "widget-type": "textarea",
+          "label": "Import Query",
+          "name": "importQuery",
+          "widget-attributes": {
+            "rows": "4"
+          },
+          "plugin-function": {
+            "method": "POST",
+            "widget": "getSchema",
+            "output-property": "schema",
+            "plugin-method": "getSchema"
+          }
+        },
+        {
+          "widget-type": "textarea",
+          "label": "Bounding Query",
+          "name": "boundingQuery",
+          "widget-attributes": {
+            "rows": "4"
+          }
+        },
+        {
+          "widget-type": "textbox",
+          "label": "Split-By Field Name",
+          "name": "splitBy"
+        },
+        {
+          "widget-type": "textbox",
+          "label": "Number of Splits to Generate",
+          "name": "numSplits"
+        }
+      ]
+    },
+    {
+      "label": "Credentials",
+      "properties": [
+        {
+          "widget-type": "textbox",
+          "label": "Username",
+          "name": "user"
+        },
+        {
+          "widget-type": "password",
+          "label": "Password",
+          "name": "password"
+        }
+      ]
+    },
+    {
+      "label": "Advanced",
+      "properties": [
+        {
+          "widget-type": "keyvalue",
+          "label": "Connection Arguments",
+          "name": "connectionArguments",
+          "widget-attributes": {
+            "showDelimiter": "false",
+            "key-placeholder": "Key",
+            "value-placeholder": "Value",
+            "kv-delimiter" : "=",
+            "delimiter" : ";"
+          }
+        },
+        {
+          "widget-type": "radio-group",
+          "label": "Auto reconnect",
+          "name": "autoReconnect",
+          "widget-attributes": {
+            "layout": "inline",
+            "default": "false",
+            "options": [
+              {
+                "id": "true",
+                "label": "True"
+              },
+              {
+                "id": "false",
+                "label": "False"
+              }
+            ]
+          }
+        },
+        {
+          "name": "maxRows",
+          "label": "Max rows",
+          "widget-type": "number",
+          "widget-attributes": {
+            "default": "0"
+          }
+        },
+        {
+          "widget-type": "select",
+          "label": "Transaction Isolation Level",
+          "name": "transactionIsolationLevel",
+          "widget-attributes": {
+            "values": [
+              "TRANSACTION_NONE",
+              "TRANSACTION_READ_UNCOMMITTED",
+              "TRANSACTION_READ_COMMITTED",
+              "TRANSACTION_REPEATABLE_READ",
+              "TRANSACTION_SERIALIZABLE"
+            ],
+            "default": "TRANSACTION_SERIALIZABLE"
+          }
+        }
+      ]
+    }
+  ],
+  "outputs": [
+    {
+      "name": "schema",
+      "widget-type": "schema",
+      "widget-attributes": {
+        "schema-types": [
+          "boolean",
+          "int",
+          "long",
+          "float",
+          "double",
+          "bytes",
+          "string"
+        ],
+        "schema-default-type": "string"
+      }
+    }
+  ],
+  "jump-config": {
+    "datasets": [
+      {
+        "ref-property-name": "referenceName"
+      }
+    ]
+  }
+}

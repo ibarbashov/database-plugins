@@ -16,15 +16,13 @@
 
 package co.cask.db.batch.sink;
 
+import co.cask.ConnectionConfig;
 import co.cask.DBConfig;
-import co.cask.DBManager;
 import co.cask.DBRecord;
-import co.cask.DBUtils;
-import co.cask.FieldCase;
+import co.cask.JDBCDriverNameProvider;
 import co.cask.cdap.api.annotation.Description;
 import co.cask.cdap.api.annotation.Macro;
 import co.cask.cdap.api.annotation.Name;
-import co.cask.cdap.api.annotation.Plugin;
 import co.cask.cdap.api.data.batch.Output;
 import co.cask.cdap.api.data.batch.OutputFormatProvider;
 import co.cask.cdap.api.data.format.StructuredRecord;
@@ -34,14 +32,15 @@ import co.cask.cdap.api.plugin.PluginConfig;
 import co.cask.cdap.etl.api.Emitter;
 import co.cask.cdap.etl.api.PipelineConfigurer;
 import co.cask.cdap.etl.api.batch.BatchRuntimeContext;
-import co.cask.cdap.etl.api.batch.BatchSink;
 import co.cask.cdap.etl.api.batch.BatchSinkContext;
 import co.cask.db.batch.TransactionIsolationLevel;
 import co.cask.hydrator.common.ReferenceBatchSink;
 import co.cask.hydrator.common.ReferencePluginConfig;
+import co.cask.util.DBUtils;
+import co.cask.util.DriverCleanup;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
-import com.google.common.base.Splitter;
+import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import org.apache.hadoop.io.NullWritable;
 import org.apache.hadoop.mapred.lib.db.DBConfiguration;
@@ -49,76 +48,104 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.sql.Connection;
+import java.sql.DatabaseMetaData;
 import java.sql.Driver;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
+import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 import javax.annotation.Nullable;
 
+import static java.util.stream.Collectors.collectingAndThen;
+import static java.util.stream.Collectors.toList;
 
 /**
  * Sink that can be configured to export data to a database table.
  */
-@Plugin(type = BatchSink.PLUGIN_TYPE)
-@Name("Database")
-@Description("Writes records to a database table. Each record will be written to a row in the table.")
-public class DBSink extends ReferenceBatchSink<StructuredRecord, DBRecord, NullWritable> {
+public abstract class DBSink extends ReferenceBatchSink<StructuredRecord, DBRecord, NullWritable>
+  implements JDBCDriverNameProvider {
   private static final Logger LOG = LoggerFactory.getLogger(DBSink.class);
 
   private final DBSinkConfig dbSinkConfig;
-  private final DBManager dbManager;
   private Class<? extends Driver> driverClass;
+  private DriverCleanup driverCleanup;
   private int[] columnTypes;
   private List<String> columns;
+  private String dbColumns;
 
   public DBSink(DBSinkConfig dbSinkConfig) {
     super(new ReferencePluginConfig(dbSinkConfig.referenceName));
     this.dbSinkConfig = dbSinkConfig;
-    this.dbManager = new DBManager(dbSinkConfig);
   }
 
   private String getJDBCPluginId() {
-    return String.format("%s.%s.%s", "sink", dbSinkConfig.jdbcPluginType, dbSinkConfig.jdbcPluginName);
+    return String.format("%s.%s.%s", "sink", ConnectionConfig.JDBC_PLUGIN_TYPE,
+                         getJdbcDriverName());
   }
 
   @Override
   public void configurePipeline(PipelineConfigurer pipelineConfigurer) {
     super.configurePipeline(pipelineConfigurer);
-    dbManager.validateJDBCPluginPipeline(pipelineConfigurer, getJDBCPluginId());
+    DBUtils.validateJDBCPluginPipeline(pipelineConfigurer, dbSinkConfig, getJDBCPluginId(), getJdbcDriverName());
   }
 
   @Override
   public void prepareRun(BatchSinkContext context) {
+    String connectionString = DBUtils.createConnectionString(dbSinkConfig, getJdbcDriverName());
+
     LOG.debug("tableName = {}; pluginType = {}; pluginName = {}; connectionString = {}; columns = {}; " +
                 "transaction isolation level: {}",
-              dbSinkConfig.tableName, dbSinkConfig.jdbcPluginType, dbSinkConfig.jdbcPluginName,
-              dbSinkConfig.connectionString, dbSinkConfig.columns, dbSinkConfig.transactionIsolationLevel);
+              dbSinkConfig.tableName,
+              ConnectionConfig.JDBC_PLUGIN_TYPE,
+              getJdbcDriverName(),
+              connectionString, "columns", dbSinkConfig.transactionIsolationLevel);
 
     // Load the plugin class to make sure it is available.
     Class<? extends Driver> driverClass = context.loadPluginClass(getJDBCPluginId());
     // make sure that the table exists
     try {
       Preconditions.checkArgument(
-        dbManager.tableExists(driverClass, dbSinkConfig.tableName),
+        tableExists(driverClass, dbSinkConfig.tableName),
         "Table %s does not exist. Please check that the 'tableName' property " +
           "has been set correctly, and that the connection string %s points to a valid database.",
-        dbSinkConfig.tableName, dbSinkConfig.connectionString);
+        dbSinkConfig.tableName, connectionString);
     } finally {
       DBUtils.cleanup(driverClass);
     }
-    context.addOutput(Output.of(dbSinkConfig.referenceName, new DBOutputFormatProvider(dbSinkConfig, driverClass)));
+
+    setColumnsInfo(context.getInputSchema().getFields());
+    context.addOutput(Output.of(dbSinkConfig.referenceName,
+                                new DBOutputFormatProvider(dbSinkConfig, connectionString, dbColumns, driverClass)));
+  }
+
+  private void setColumnsInfo(List<Schema.Field> fields) {
+    columns = fields.stream()
+      .map(Schema.Field::getName)
+      .collect(collectingAndThen(toList(), Collections::unmodifiableList));
+
+    dbColumns = null;
+    if (columns.size() > 1) {
+
+      dbColumns = String.join(",", columns);
+
+    } else if (columns.size() == 1) {
+      dbColumns = columns.get(0);
+    }
+
   }
 
   @Override
   public void initialize(BatchRuntimeContext context) throws Exception {
     super.initialize(context);
     driverClass = context.loadPluginClass(getJDBCPluginId());
+    setColumnsInfo(context.getInputSchema().getFields());
     setResultSetMetadata();
   }
 
@@ -137,49 +164,49 @@ public class DBSink extends ReferenceBatchSink<StructuredRecord, DBRecord, NullW
       output.set(column, input.get(column));
     }
 
-    emitter.emit(new KeyValue<DBRecord, NullWritable>(new DBRecord(output.build(), columnTypes), null));
+    emitter.emit(new KeyValue<>(new DBRecord(output.build(), columnTypes), null));
   }
 
   @Override
   public void destroy() {
     DBUtils.cleanup(driverClass);
-    dbManager.destroy();
+    if (driverCleanup != null) {
+      driverCleanup.destroy();
+    }
   }
 
   @VisibleForTesting
-  void setColumns(List<String> columns) {
+  public void setColumns(List<String> columns) {
     this.columns = ImmutableList.copyOf(columns);
   }
 
   private void setResultSetMetadata() throws Exception {
     Map<String, Integer> columnToType = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
-    dbManager.ensureJDBCDriverIsAvailable(driverClass);
+    String connectionString = DBUtils.createConnectionString(dbSinkConfig, getJdbcDriverName());
 
-    try (Connection connection = DriverManager.getConnection(dbSinkConfig.connectionString,
+    driverCleanup = DBUtils.ensureJDBCDriverIsAvailable(driverClass, connectionString,
+                                                        ConnectionConfig.JDBC_PLUGIN_TYPE,
+                                                        getJdbcDriverName());
+
+    try (Connection connection = DriverManager.getConnection(connectionString,
                                                              dbSinkConfig.getConnectionArguments())) {
       try (Statement statement = connection.createStatement();
            // Run a query against the DB table that returns 0 records, but returns valid ResultSetMetadata
            // that can be used to construct DBRecord objects to sink to the database table.
            ResultSet rs = statement.executeQuery(String.format("SELECT %s FROM %s WHERE 1 = 0",
-                                                               dbSinkConfig.columns, dbSinkConfig.tableName))
+                                                               dbColumns,
+                                                               dbSinkConfig.tableName))
       ) {
         ResultSetMetaData resultSetMetadata = rs.getMetaData();
-        FieldCase fieldCase = FieldCase.toFieldCase(dbSinkConfig.columnNameCase);
         // JDBC driver column indices start with 1
         for (int i = 0; i < rs.getMetaData().getColumnCount(); i++) {
           String name = resultSetMetadata.getColumnName(i + 1);
           int type = resultSetMetadata.getColumnType(i + 1);
-          if (fieldCase == FieldCase.LOWER) {
-            name = name.toLowerCase();
-          } else if (fieldCase == FieldCase.UPPER) {
-            name = name.toUpperCase();
-          }
           columnToType.put(name, type);
         }
       }
     }
 
-    columns = ImmutableList.copyOf(Splitter.on(",").omitEmptyStrings().trimResults().split(dbSinkConfig.columns));
     columnTypes = new int[columns.size()];
     for (int i = 0; i < columnTypes.length; i++) {
       String name = columns.get(i);
@@ -188,18 +215,37 @@ public class DBSink extends ReferenceBatchSink<StructuredRecord, DBRecord, NullW
     }
   }
 
+  private boolean tableExists(Class<? extends Driver> jdbcDriverClass, String tableName) {
+    String connectionString = DBUtils.createConnectionString(dbSinkConfig, getJdbcDriverName());
+
+    try {
+      DBUtils.ensureJDBCDriverIsAvailable(jdbcDriverClass, connectionString,
+                                          ConnectionConfig.JDBC_PLUGIN_TYPE, getJdbcDriverName());
+    } catch (IllegalAccessException | InstantiationException | SQLException e) {
+      LOG.error("Unable to load or register JDBC driver {} while checking for the existence of the database table {}.",
+                jdbcDriverClass, tableName, e);
+      throw Throwables.propagate(e);
+    }
+
+    try (Connection connection = DriverManager.getConnection(connectionString, dbSinkConfig.getConnectionArguments())) {
+      DatabaseMetaData metadata = connection.getMetaData();
+      try (ResultSet rs = metadata.getTables(null, null, tableName, null)) {
+        return rs.next();
+      }
+    } catch (SQLException e) {
+      LOG.error("Exception while trying to check the existence of database table {} for connection {}.",
+                tableName, connectionString, e);
+      throw Throwables.propagate(e);
+    }
+  }
+
   /**
    * {@link PluginConfig} for {@link DBSink}
    */
-  public static class DBSinkConfig extends DBConfig {
+  public abstract static class DBSinkConfig extends DBConfig {
     public static final String COLUMNS = "columns";
     public static final String TABLE_NAME = "tableName";
     public static final String TRANSACTION_ISOLATION_LEVEL = "transactionIsolationLevel";
-
-    @Name(COLUMNS)
-    @Description("Comma-separated list of columns in the specified table to export to.")
-    @Macro
-    public String columns;
 
     @Name(TABLE_NAME)
     @Description("Name of the database table to write to.")
@@ -219,10 +265,10 @@ public class DBSink extends ReferenceBatchSink<StructuredRecord, DBRecord, NullW
   private static class DBOutputFormatProvider implements OutputFormatProvider {
     private final Map<String, String> conf;
 
-    DBOutputFormatProvider(DBSinkConfig dbSinkConfig, Class<? extends Driver> driverClass) {
+    DBOutputFormatProvider(DBSinkConfig dbSinkConfig, String connectionString,
+                           String dbColumns, Class<? extends Driver> driverClass) {
       this.conf = new HashMap<>();
 
-      conf.put(ETLDBOutputFormat.AUTO_COMMIT_ENABLED, String.valueOf(dbSinkConfig.getEnableAutoCommit()));
       if (dbSinkConfig.transactionIsolationLevel != null) {
         conf.put(TransactionIsolationLevel.CONF_KEY, dbSinkConfig.transactionIsolationLevel);
       }
@@ -230,7 +276,7 @@ public class DBSink extends ReferenceBatchSink<StructuredRecord, DBRecord, NullW
         conf.put(DBUtils.CONNECTION_ARGUMENTS, dbSinkConfig.connectionArguments);
       }
       conf.put(DBConfiguration.DRIVER_CLASS_PROPERTY, driverClass.getName());
-      conf.put(DBConfiguration.URL_PROPERTY, dbSinkConfig.connectionString);
+      conf.put(DBConfiguration.URL_PROPERTY, connectionString);
       if (dbSinkConfig.user != null) {
         conf.put(DBConfiguration.USERNAME_PROPERTY, dbSinkConfig.user);
       }
@@ -238,7 +284,7 @@ public class DBSink extends ReferenceBatchSink<StructuredRecord, DBRecord, NullW
         conf.put(DBConfiguration.PASSWORD_PROPERTY, dbSinkConfig.password);
       }
       conf.put(DBConfiguration.OUTPUT_TABLE_NAME_PROPERTY, dbSinkConfig.tableName);
-      conf.put(DBConfiguration.OUTPUT_FIELD_NAMES_PROPERTY, dbSinkConfig.columns);
+      conf.put(DBConfiguration.OUTPUT_FIELD_NAMES_PROPERTY, dbColumns);
     }
 
     @Override

@@ -14,22 +14,16 @@
  * the License.
  */
 
-package co.cask.db.batch.action;
+package co.cask.mysql;
 
-import co.cask.ConnectionConfig;
-import co.cask.cdap.api.annotation.Description;
-import co.cask.cdap.api.annotation.Macro;
+import co.cask.JDBCDriverNameProvider;
 
 /**
- * Config for Actions running database commands
+ * Driver name provider for MySQL database.
  */
-public abstract class QueryConfig extends ConnectionConfig {
-
-  @Description("The database command to run.")
-  @Macro
-  public String query;
-
-  public QueryConfig() {
-    super();
+public interface MysqlDriverNameProvider extends JDBCDriverNameProvider {
+  @Override
+  default String getJdbcDriverName() {
+    return MysqlConstants.DRIVER_NAME;
   }
 }

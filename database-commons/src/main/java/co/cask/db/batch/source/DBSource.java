@@ -18,16 +18,13 @@ package co.cask.db.batch.source;
 
 import co.cask.ConnectionConfig;
 import co.cask.DBConfig;
-import co.cask.DBManager;
 import co.cask.DBRecord;
-import co.cask.DBUtils;
-import co.cask.DriverCleanup;
 import co.cask.FieldCase;
+import co.cask.JDBCDriverNameProvider;
 import co.cask.StructuredRecordUtils;
 import co.cask.cdap.api.annotation.Description;
 import co.cask.cdap.api.annotation.Macro;
 import co.cask.cdap.api.annotation.Name;
-import co.cask.cdap.api.annotation.Plugin;
 import co.cask.cdap.api.data.batch.Input;
 import co.cask.cdap.api.data.format.StructuredRecord;
 import co.cask.cdap.api.data.schema.Schema;
@@ -44,6 +41,8 @@ import co.cask.hydrator.common.LineageRecorder;
 import co.cask.hydrator.common.ReferenceBatchSource;
 import co.cask.hydrator.common.ReferencePluginConfig;
 import co.cask.hydrator.common.SourceInputFormatProvider;
+import co.cask.util.DBUtils;
+import co.cask.util.DriverCleanup;
 import com.google.common.base.Strings;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.io.LongWritable;
@@ -59,6 +58,7 @@ import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.Objects;
 import java.util.Properties;
 import javax.annotation.Nullable;
 import javax.ws.rs.Path;
@@ -66,48 +66,38 @@ import javax.ws.rs.Path;
 /**
  * Batch source to read from a DB table
  */
-@Plugin(type = "batchsource")
-@Name("Database")
-@Description("Reads from a database table(s) using a configurable SQL query." +
-  " Outputs one record for each row returned by the query.")
-public class DBSource extends ReferenceBatchSource<LongWritable, DBRecord, StructuredRecord> {
+public abstract class DBSource extends ReferenceBatchSource<LongWritable, DBRecord, StructuredRecord>
+  implements JDBCDriverNameProvider {
+
   private static final Logger LOG = LoggerFactory.getLogger(DBSource.class);
 
-  private final DBSourceConfig sourceConfig;
-  private final DBManager dbManager;
-  private Class<? extends Driver> driverClass;
+  protected final DBSourceConfig sourceConfig;
+  protected Class<? extends Driver> driverClass;
 
   public DBSource(DBSourceConfig sourceConfig) {
     super(new ReferencePluginConfig(sourceConfig.referenceName));
     this.sourceConfig = sourceConfig;
-    this.dbManager = new DBManager(sourceConfig);
+  }
+
+  private static String removeConditionsClause(String importQuerySring) {
+    importQuerySring = importQuerySring.replaceAll("\\s{2,}", " ").toUpperCase();
+    if (importQuerySring.contains("WHERE $CONDITIONS AND")) {
+      importQuerySring = importQuerySring.replace("$CONDITIONS AND", "");
+    } else if (importQuerySring.contains("WHERE $CONDITIONS")) {
+      importQuerySring = importQuerySring.replace("WHERE $CONDITIONS", "");
+    } else if (importQuerySring.contains("AND $CONDITIONS")) {
+      importQuerySring = importQuerySring.replace("AND $CONDITIONS", "");
+    }
+    return importQuerySring;
   }
 
   @Override
   public void configurePipeline(PipelineConfigurer pipelineConfigurer) {
     super.configurePipeline(pipelineConfigurer);
-    dbManager.validateJDBCPluginPipeline(pipelineConfigurer, getJDBCPluginId());
+    DBUtils.validateJDBCPluginPipeline(pipelineConfigurer, sourceConfig, getJDBCPluginId(), getJdbcDriverName());
     sourceConfig.validate();
     if (!Strings.isNullOrEmpty(sourceConfig.schema)) {
       pipelineConfigurer.getStageConfigurer().setOutputSchema(sourceConfig.getSchema());
-    }
-  }
-
-  class GetSchemaRequest {
-    public String connectionString;
-    @Nullable
-    public String connectionArguments;
-    @Nullable
-    public String user;
-    @Nullable
-    public String password;
-    public String jdbcPluginName;
-    @Nullable
-    public String jdbcPluginType;
-    public String query;
-
-    private String getJDBCPluginType() {
-      return jdbcPluginType == null ? "jdbc" : jdbcPluginType;
     }
   }
 
@@ -127,6 +117,7 @@ public class DBSource extends ReferenceBatchSource<LongWritable, DBRecord, Struc
     SQLException, InstantiationException {
     DriverCleanup driverCleanup;
     try {
+
       driverCleanup = loadPluginClassAndGetDriver(request, pluginContext);
       try (Connection connection = getConnection(request)) {
         String query = request.query;
@@ -146,33 +137,29 @@ public class DBSource extends ReferenceBatchSource<LongWritable, DBRecord, Struc
     }
   }
 
-  private static String removeConditionsClause(String importQuerySring) {
-    importQuerySring = importQuerySring.replaceAll("\\s{2,}", " ").toUpperCase();
-    if (importQuerySring.contains("WHERE $CONDITIONS AND")) {
-      importQuerySring = importQuerySring.replace("$CONDITIONS AND", "");
-    } else if (importQuerySring.contains("WHERE $CONDITIONS")) {
-      importQuerySring = importQuerySring.replace("WHERE $CONDITIONS", "");
-    } else if (importQuerySring.contains("AND $CONDITIONS")) {
-      importQuerySring = importQuerySring.replace("AND $CONDITIONS", "");
-    }
-    return importQuerySring;
-  }
-
-  private DriverCleanup loadPluginClassAndGetDriver(GetSchemaRequest request, EndpointPluginContext pluginContext)
+  protected DriverCleanup loadPluginClassAndGetDriver(GetSchemaRequest request,
+                                                      EndpointPluginContext pluginContext)
     throws IllegalAccessException, InstantiationException, SQLException {
+
+    String jdbcDriverName = Objects.nonNull(request.jdbcDriverName) ? request.jdbcDriverName
+                                                                    : getJdbcDriverName();
+
     Class<? extends Driver> driverClass =
-      pluginContext.loadPluginClass(request.getJDBCPluginType(),
-                                    request.jdbcPluginName, PluginProperties.builder().build());
+      pluginContext.loadPluginClass(ConnectionConfig.JDBC_PLUGIN_TYPE,
+                                    jdbcDriverName, PluginProperties.builder().build());
 
     if (driverClass == null) {
       throw new InstantiationException(
         String.format("Unable to load Driver class with plugin type %s and plugin name %s",
-                      request.getJDBCPluginType(), request.jdbcPluginName));
+                      ConnectionConfig.JDBC_PLUGIN_TYPE, jdbcDriverName));
     }
 
     try {
-      return DBUtils.ensureJDBCDriverIsAvailable(driverClass, request.connectionString,
-                                                 request.getJDBCPluginType(), request.jdbcPluginName);
+      return DBUtils.ensureJDBCDriverIsAvailable(
+        driverClass,
+        DBUtils.createConnectionString(request.host, request.port, request.database, jdbcDriverName),
+        ConnectionConfig.JDBC_PLUGIN_TYPE,
+        jdbcDriverName);
     } catch (IllegalAccessException | InstantiationException | SQLException e) {
       LOG.error("Unable to load or register driver {}", driverClass, e);
       throw e;
@@ -184,31 +171,40 @@ public class DBSource extends ReferenceBatchSource<LongWritable, DBRecord, Struc
       ConnectionConfig.getConnectionArguments(getSchemaRequest.connectionArguments,
                                               getSchemaRequest.user,
                                               getSchemaRequest.password);
-    return DriverManager.getConnection(getSchemaRequest.connectionString, properties);
+
+    String jdbcDriverName = Objects.nonNull(getSchemaRequest.jdbcDriverName) ? getSchemaRequest.jdbcDriverName
+                                                                             : getJdbcDriverName();
+
+    return DriverManager.getConnection(
+      DBUtils.createConnectionString(getSchemaRequest.host, getSchemaRequest.port,
+                                     getSchemaRequest.database, jdbcDriverName), properties);
   }
 
   @Override
   public void prepareRun(BatchSourceContext context) throws Exception {
     sourceConfig.validate();
 
+    String connectionString = DBUtils.createConnectionString(sourceConfig, getJdbcDriverName());
+
     LOG.debug("pluginType = {}; pluginName = {}; connectionString = {}; importQuery = {}; " +
                 "boundingQuery = {}; transaction isolation level: {}",
-              sourceConfig.jdbcPluginType, sourceConfig.jdbcPluginName,
-              sourceConfig.connectionString, sourceConfig.getImportQuery(), sourceConfig.getBoundingQuery());
+              ConnectionConfig.JDBC_PLUGIN_TYPE, getJdbcDriverName(),
+              connectionString,
+              sourceConfig.getImportQuery(), sourceConfig.getBoundingQuery());
     Configuration hConf = new Configuration();
     hConf.clear();
 
     // Load the plugin class to make sure it is available.
     Class<? extends Driver> driverClass = context.loadPluginClass(getJDBCPluginId());
     if (sourceConfig.user == null && sourceConfig.password == null) {
-      DBConfiguration.configureDB(hConf, driverClass.getName(), sourceConfig.connectionString);
+      DBConfiguration.configureDB(hConf, driverClass.getName(), connectionString);
     } else {
-      DBConfiguration.configureDB(hConf, driverClass.getName(), sourceConfig.connectionString,
+      DBConfiguration.configureDB(hConf, driverClass.getName(), connectionString,
                                   sourceConfig.user, sourceConfig.password);
     }
     DataDrivenETLDBInputFormat.setInput(hConf, DBRecord.class,
                                         sourceConfig.getImportQuery(), sourceConfig.getBoundingQuery(),
-                                        sourceConfig.getEnableAutoCommit());
+                                        false);
     if (sourceConfig.transactionIsolationLevel != null) {
       hConf.set(TransactionIsolationLevel.CONF_KEY, sourceConfig.transactionIsolationLevel);
     }
@@ -243,64 +239,28 @@ public class DBSource extends ReferenceBatchSource<LongWritable, DBRecord, Struc
   @Override
   public void transform(KeyValue<LongWritable, DBRecord> input, Emitter<StructuredRecord> emitter) throws Exception {
     emitter.emit(StructuredRecordUtils.convertCase(
-      input.getValue().getRecord(), FieldCase.toFieldCase(sourceConfig.columnNameCase)));
+      input.getValue().getRecord(), FieldCase.NONE));
   }
 
   @Override
   public void destroy() {
-    try {
-      DBUtils.cleanup(driverClass);
-    } finally {
-      dbManager.destroy();
-    }
+    DBUtils.cleanup(driverClass);
   }
 
   private String getJDBCPluginId() {
-    return String.format("%s.%s.%s", "source", sourceConfig.jdbcPluginType, sourceConfig.jdbcPluginName);
+    return String.format("%s.%s.%s", "source", ConnectionConfig.JDBC_PLUGIN_TYPE, getJdbcDriverName());
   }
 
   /**
    * {@link PluginConfig} for {@link DBSource}
    */
-  public static class DBSourceConfig extends DBConfig {
+  public abstract static class DBSourceConfig extends DBConfig {
     public static final String IMPORT_QUERY = "importQuery";
     public static final String BOUNDING_QUERY = "boundingQuery";
     public static final String SPLIT_BY = "splitBy";
     public static final String NUM_SPLITS = "numSplits";
     public static final String SCHEMA = "schema";
     public static final String TRANSACTION_ISOLATION_LEVEL = "transactionIsolationLevel";
-
-    @Name(IMPORT_QUERY)
-    @Description("The SELECT query to use to import data from the specified table. " +
-      "You can specify an arbitrary number of columns to import, or import all columns using *. " +
-      "The Query should contain the '$CONDITIONS' string unless numSplits is set to one. " +
-      "For example, 'SELECT * FROM table WHERE $CONDITIONS'. The '$CONDITIONS' string" +
-      "will be replaced by 'splitBy' field limits specified by the bounding query.")
-    @Macro
-    String importQuery;
-
-    @Nullable
-    @Name(BOUNDING_QUERY)
-    @Description("Bounding Query should return the min and max of the " +
-      "values of the 'splitBy' field. For example, 'SELECT MIN(id),MAX(id) FROM table'. " +
-      "This is required unless numSplits is set to one.")
-    @Macro
-    String boundingQuery;
-
-    @Nullable
-    @Name(SPLIT_BY)
-    @Description("Field Name which will be used to generate splits. This is required unless numSplits is set to one.")
-    @Macro
-    String splitBy;
-
-    @Nullable
-    @Name(NUM_SPLITS)
-    @Description("The number of splits to generate. If set to one, the boundingQuery is not needed, " +
-      "and no $CONDITIONS string needs to be specified in the importQuery. If not specified, the " +
-      "execution framework will pick a value.")
-    @Macro
-    Integer numSplits;
-
     @Nullable
     @Name(TRANSACTION_ISOLATION_LEVEL)
     @Description("The transaction isolation level for queries run by this sink. " +
@@ -309,13 +269,39 @@ public class DBSource extends ReferenceBatchSource<LongWritable, DBRecord, Struc
       "and this setting is set to true. For drivers like that, this should be set to TRANSACTION_NONE.")
     @Macro
     public String transactionIsolationLevel;
-
+    @Name(IMPORT_QUERY)
+    @Description("The SELECT query to use to import data from the specified table. " +
+      "You can specify an arbitrary number of columns to import, or import all columns using *. " +
+      "The Query should contain the '$CONDITIONS' string unless numSplits is set to one. " +
+      "For example, 'SELECT * FROM table WHERE $CONDITIONS'. The '$CONDITIONS' string" +
+      "will be replaced by 'splitBy' field limits specified by the bounding query.")
+    @Macro
+    public String importQuery;
+    @Nullable
+    @Name(BOUNDING_QUERY)
+    @Description("Bounding Query should return the min and max of the " +
+      "values of the 'splitBy' field. For example, 'SELECT MIN(id),MAX(id) FROM table'. " +
+      "This is required unless numSplits is set to one.")
+    @Macro
+    public String boundingQuery;
+    @Nullable
+    @Name(SPLIT_BY)
+    @Description("Field Name which will be used to generate splits. This is required unless numSplits is set to one.")
+    @Macro
+    public String splitBy;
+    @Nullable
+    @Name(NUM_SPLITS)
+    @Description("The number of splits to generate. If set to one, the boundingQuery is not needed, " +
+      "and no $CONDITIONS string needs to be specified in the importQuery. If not specified, the " +
+      "execution framework will pick a value.")
+    @Macro
+    public Integer numSplits;
     @Nullable
     @Name(SCHEMA)
     @Description("The schema of records output by the source. This will be used in place of whatever schema comes " +
       "back from the query. This should only be used if there is a bug in your jdbc driver. For example, if a column " +
       "is not correctly getting marked as nullable.")
-    String schema;
+    public String schema;
 
     private String getImportQuery() {
       return cleanQuery(importQuery);
@@ -365,5 +351,23 @@ public class DBSource extends ReferenceBatchSource<LongWritable, DBRecord, Struc
                                                          schema, e.getMessage()), e);
       }
     }
+  }
+
+  /**
+   * Request schema class.
+   */
+  public class GetSchemaRequest {
+    public String host;
+    public int port;
+    public String database;
+    @Nullable
+    public String connectionArguments;
+    @Nullable
+    public String user;
+    @Nullable
+    public String password;
+    public String query;
+    @Nullable
+    public String jdbcDriverName;
   }
 }
