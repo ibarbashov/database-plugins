@@ -56,7 +56,7 @@ import java.util.Set;
 /**
  * Test for ETL using databases.
  */
-@Ignore
+@Ignore // Probably need to be converted to specific database provider and moved in integration tests repo.
 public class DBSinkTestRun extends DatabasePluginTestBase {
 
   @Test

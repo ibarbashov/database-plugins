@@ -86,7 +86,6 @@ public class DBSinkTest {
       .set("body", "sdfsdf")
       .build();
 
-
     StructuredRecord output = StructuredRecord
       .builder(Schema.recordOf(
         "foo",

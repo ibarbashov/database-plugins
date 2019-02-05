@@ -38,7 +38,7 @@ import java.sql.Statement;
 
 /**
  */
-@Ignore
+@Ignore // Probably need to be converted to specific database provider and moved in integration tests repo.
 public class DBQueryActionTestRun extends DatabasePluginTestBase {
 
   @Test

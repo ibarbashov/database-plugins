@@ -39,7 +39,7 @@ import java.sql.Statement;
 /**
  * Test for DBAction Plugin
  */
-@Ignore
+@Ignore // Probably need to be converted to specific database provider and moved in integration tests repo.
 public class DBActionTestRun extends DatabasePluginTestBase {
 
   @Test
