@@ -126,12 +126,7 @@ public class DBSink extends ReferenceBatchSink<StructuredRecord, DBRecord, NullW
     dbColumns = null;
     if (columns.size() > 1) {
 
-      dbColumns = columns.stream()
-        .collect(StringBuilder::new,
-                 (builder, column) -> builder.append(column).append(","),
-                 StringBuilder::append).toString();
-
-      dbColumns = dbColumns.substring(0, dbColumns.length() - 1);
+      dbColumns = String.join(",", columns);
 
     } else if (columns.size() == 1) {
       dbColumns = columns.get(0);
