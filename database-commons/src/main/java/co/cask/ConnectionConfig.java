@@ -32,7 +32,7 @@ import javax.annotation.Nullable;
 /**
  * Defines a base {@link PluginConfig} that Database source, sink, and action can all re-use.
  */
-public abstract class ConnectionConfig extends PluginConfig implements DBProviderAware {
+public abstract class ConnectionConfig extends PluginConfig implements JDBCDriverNameProvider {
   public static final String CONNECTION_STRING = "connectionString";
   public static final String USER = "user";
   public static final String HOST = "host";
@@ -41,6 +41,7 @@ public abstract class ConnectionConfig extends PluginConfig implements DBProvide
   public static final String PASSWORD = "password";
   public static final String CONNECTION_ARGUMENTS = "connectionArguments";
   public static final String JDBC_PLUGIN_NAME = "jdbcPluginName";
+  public static final String JDBC_PLUGIN_TYPE = "jdbc";
   public static final String COLUMN_NAME_CASE = "columnNameCase";
 
   @Name(HOST)

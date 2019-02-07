@@ -14,40 +14,46 @@
  * the License.
  */
 
-package co.cask;
+package co.cask.mysql;
 
 import co.cask.cdap.api.annotation.Description;
 import co.cask.cdap.api.annotation.Name;
 import co.cask.cdap.api.annotation.Plugin;
-import co.cask.cdap.etl.api.batch.PostAction;
-import co.cask.db.batch.action.QueryAction;
-import co.cask.db.batch.action.QueryActionConfig;
+import co.cask.cdap.etl.api.action.Action;
+import co.cask.db.batch.action.DBAction;
+import co.cask.db.batch.action.QueryConfig;
 import com.google.common.collect.ImmutableMap;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.Map;
-
 import javax.annotation.Nullable;
 
-import static co.cask.MysqlConstants.ALLOW_MULTIPLE_QUERIES;
-import static co.cask.MysqlConstants.AUTO_RECONNECT;
+import static co.cask.mysql.MysqlConstants.ALLOW_MULTIPLE_QUERIES;
+import static co.cask.mysql.MysqlConstants.AUTO_RECONNECT;
+import static co.cask.mysql.MysqlConstants.PLUGIN_NAME;
 
 /**
- * Represents Mysql post action.
+ * Action that runs MySQL command.
  */
-@Plugin(type = PostAction.PLUGIN_TYPE)
-@Name("MysqlQuery")
-@Description("Runs a mysql query after a pipeline run.")
-public class MysqlPostAction extends QueryAction {
+@Plugin(type = Action.PLUGIN_TYPE)
+@Name(PLUGIN_NAME)
+@Description("Action that runs a MySQL command")
+public class MysqlAction extends DBAction {
 
-  public MysqlPostAction(MysqlQueryActionConfig config) {
+  private static final Logger LOG = LoggerFactory.getLogger(MysqlAction.class);
+
+  private final MysqlActionConfig config;
+
+  public MysqlAction(MysqlActionConfig config) {
     super(config);
+    this.config = config;
   }
 
   /**
-   * Mysql post action config.
+   * Mysql Action Config.
    */
-  public static class MysqlQueryActionConfig extends QueryActionConfig implements MysqlConfig {
-
+  public static class MysqlActionConfig extends QueryConfig implements MysqlConfig {
     @Name(AUTO_RECONNECT)
     @Description("Should the driver try to re-establish stale and/or dead connections")
     public Boolean autoReconnect;
@@ -56,7 +62,6 @@ public class MysqlPostAction extends QueryAction {
     @Nullable
     @Description("Allow the use of ';' to delimit multiple queries during one statement (true/false)")
     public Boolean allowMultiQueries;
-
 
     @Override
     public Map<String, String> getDBSpecificArguments() {
@@ -67,6 +72,7 @@ public class MysqlPostAction extends QueryAction {
       }
 
       builder.put(AUTO_RECONNECT, String.valueOf(autoReconnect));
+
       return builder.build();
     }
   }

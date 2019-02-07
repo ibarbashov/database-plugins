@@ -16,10 +16,9 @@
 
 package co.cask.db.batch.sink;
 
+import co.cask.ConnectionConfig;
 import co.cask.DBConfig;
-import co.cask.DBManager;
 import co.cask.DBRecord;
-import co.cask.DBUtils;
 import co.cask.cdap.api.annotation.Description;
 import co.cask.cdap.api.annotation.Macro;
 import co.cask.cdap.api.annotation.Name;
@@ -36,8 +35,11 @@ import co.cask.cdap.etl.api.batch.BatchSinkContext;
 import co.cask.db.batch.TransactionIsolationLevel;
 import co.cask.hydrator.common.ReferenceBatchSink;
 import co.cask.hydrator.common.ReferencePluginConfig;
+import co.cask.util.DBUtils;
+import co.cask.util.DriverCleanup;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import org.apache.hadoop.io.NullWritable;
 import org.apache.hadoop.mapred.lib.db.DBConfiguration;
@@ -45,10 +47,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.sql.Connection;
+import java.sql.DatabaseMetaData;
 import java.sql.Driver;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
+import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -68,8 +72,8 @@ public class DBSink extends ReferenceBatchSink<StructuredRecord, DBRecord, NullW
   private static final Logger LOG = LoggerFactory.getLogger(DBSink.class);
 
   private final DBSinkConfig dbSinkConfig;
-  private final DBManager dbManager;
   private Class<? extends Driver> driverClass;
+  private DriverCleanup driverCleanup;
   private int[] columnTypes;
   private List<String> columns;
   private String dbColumns;
@@ -77,18 +81,17 @@ public class DBSink extends ReferenceBatchSink<StructuredRecord, DBRecord, NullW
   public DBSink(DBSinkConfig dbSinkConfig) {
     super(new ReferencePluginConfig(dbSinkConfig.referenceName));
     this.dbSinkConfig = dbSinkConfig;
-    this.dbManager = new DBManager(dbSinkConfig);
   }
 
   private String getJDBCPluginId() {
-    return String.format("%s.%s.%s", "sink", dbSinkConfig.getDBProvider().getJdbcPluginType(),
-                         dbSinkConfig.getDBProvider().getJdbcPluginName());
+    return String.format("%s.%s.%s", "sink", ConnectionConfig.JDBC_PLUGIN_TYPE,
+                         dbSinkConfig.getJdbcDriverName());
   }
 
   @Override
   public void configurePipeline(PipelineConfigurer pipelineConfigurer) {
     super.configurePipeline(pipelineConfigurer);
-    dbManager.validateJDBCPluginPipeline(pipelineConfigurer, getJDBCPluginId());
+    DBUtils.validateJDBCPluginPipeline(pipelineConfigurer, dbSinkConfig, getJDBCPluginId());
   }
 
   @Override
@@ -96,8 +99,8 @@ public class DBSink extends ReferenceBatchSink<StructuredRecord, DBRecord, NullW
     LOG.debug("tableName = {}; pluginType = {}; pluginName = {}; connectionString = {}; columns = {}; " +
                 "transaction isolation level: {}",
               dbSinkConfig.tableName,
-              dbSinkConfig.getDBProvider().getJdbcPluginType(),
-              dbSinkConfig.getDBProvider().getJdbcPluginName(),
+              ConnectionConfig.JDBC_PLUGIN_TYPE,
+              dbSinkConfig.getJdbcDriverName(),
               DBUtils.createConnectionString(dbSinkConfig), "columns", dbSinkConfig.transactionIsolationLevel);
 
     // Load the plugin class to make sure it is available.
@@ -105,7 +108,7 @@ public class DBSink extends ReferenceBatchSink<StructuredRecord, DBRecord, NullW
     // make sure that the table exists
     try {
       Preconditions.checkArgument(
-        dbManager.tableExists(driverClass, dbSinkConfig.tableName),
+        tableExists(driverClass, dbSinkConfig.tableName),
         "Table %s does not exist. Please check that the 'tableName' property " +
           "has been set correctly, and that the connection string %s points to a valid database.",
         dbSinkConfig.tableName, DBUtils.createConnectionString(dbSinkConfig));
@@ -163,7 +166,9 @@ public class DBSink extends ReferenceBatchSink<StructuredRecord, DBRecord, NullW
   @Override
   public void destroy() {
     DBUtils.cleanup(driverClass);
-    dbManager.destroy();
+    if (driverCleanup != null) {
+      driverCleanup.destroy();
+    }
   }
 
   @VisibleForTesting
@@ -173,7 +178,9 @@ public class DBSink extends ReferenceBatchSink<StructuredRecord, DBRecord, NullW
 
   private void setResultSetMetadata() throws Exception {
     Map<String, Integer> columnToType = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
-    dbManager.ensureJDBCDriverIsAvailable(driverClass);
+    driverCleanup = DBUtils.ensureJDBCDriverIsAvailable(driverClass, DBUtils.createConnectionString(dbSinkConfig),
+                                                        ConnectionConfig.JDBC_PLUGIN_TYPE,
+                                                        dbSinkConfig.getJdbcDriverName());
 
     try (Connection connection = DriverManager.getConnection(DBUtils.createConnectionString(dbSinkConfig),
                                                              dbSinkConfig.getConnectionArguments())) {
@@ -199,6 +206,29 @@ public class DBSink extends ReferenceBatchSink<StructuredRecord, DBRecord, NullW
       String name = columns.get(i);
       Preconditions.checkArgument(columnToType.containsKey(name), "Missing column '%s' in SQL table", name);
       columnTypes[i] = columnToType.get(name);
+    }
+  }
+
+  private boolean tableExists(Class<? extends Driver> jdbcDriverClass, String tableName) {
+    try {
+      DBUtils.ensureJDBCDriverIsAvailable(jdbcDriverClass, DBUtils.createConnectionString(dbSinkConfig),
+                                          ConnectionConfig.JDBC_PLUGIN_TYPE, dbSinkConfig.getJdbcDriverName());
+    } catch (IllegalAccessException | InstantiationException | SQLException e) {
+      LOG.error("Unable to load or register JDBC driver {} while checking for the existence of the database table {}.",
+                jdbcDriverClass, tableName, e);
+      throw Throwables.propagate(e);
+    }
+
+    try (Connection connection = DriverManager.getConnection(DBUtils.createConnectionString(dbSinkConfig),
+                                                             dbSinkConfig.getConnectionArguments())) {
+      DatabaseMetaData metadata = connection.getMetaData();
+      try (ResultSet rs = metadata.getTables(null, null, tableName, null)) {
+        return rs.next();
+      }
+    } catch (SQLException e) {
+      LOG.error("Exception while trying to check the existence of database table {} for connection {}.",
+                tableName, DBUtils.createConnectionString(dbSinkConfig), e);
+      throw Throwables.propagate(e);
     }
   }
 

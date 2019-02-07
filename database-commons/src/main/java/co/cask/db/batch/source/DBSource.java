@@ -18,12 +18,9 @@ package co.cask.db.batch.source;
 
 import co.cask.ConnectionConfig;
 import co.cask.DBConfig;
-import co.cask.DBManager;
-import co.cask.DBProvider;
 import co.cask.DBRecord;
-import co.cask.DBUtils;
-import co.cask.DriverCleanup;
 import co.cask.FieldCase;
+import co.cask.JDBCDriverNameProvider;
 import co.cask.StructuredRecordUtils;
 import co.cask.cdap.api.annotation.Description;
 import co.cask.cdap.api.annotation.Macro;
@@ -44,6 +41,8 @@ import co.cask.hydrator.common.LineageRecorder;
 import co.cask.hydrator.common.ReferenceBatchSource;
 import co.cask.hydrator.common.ReferencePluginConfig;
 import co.cask.hydrator.common.SourceInputFormatProvider;
+import co.cask.util.DBUtils;
+import co.cask.util.DriverCleanup;
 import com.google.common.base.Strings;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.io.LongWritable;
@@ -66,18 +65,17 @@ import javax.ws.rs.Path;
 /**
  * Batch source to read from a DB table
  */
-public class DBSource extends ReferenceBatchSource<LongWritable, DBRecord, StructuredRecord> {
+public class DBSource extends ReferenceBatchSource<LongWritable, DBRecord, StructuredRecord>
+  implements JDBCDriverNameProvider {
 
   private static final Logger LOG = LoggerFactory.getLogger(DBSource.class);
 
   protected final DBSourceConfig sourceConfig;
-  protected final DBManager dbManager;
   protected Class<? extends Driver> driverClass;
 
   public DBSource(DBSourceConfig sourceConfig) {
     super(new ReferencePluginConfig(sourceConfig.referenceName));
     this.sourceConfig = sourceConfig;
-    this.dbManager = new DBManager(sourceConfig);
   }
 
   private static String removeConditionsClause(String importQuerySring) {
@@ -95,7 +93,7 @@ public class DBSource extends ReferenceBatchSource<LongWritable, DBRecord, Struc
   @Override
   public void configurePipeline(PipelineConfigurer pipelineConfigurer) {
     super.configurePipeline(pipelineConfigurer);
-    dbManager.validateJDBCPluginPipeline(pipelineConfigurer, getJDBCPluginId());
+    DBUtils.validateJDBCPluginPipeline(pipelineConfigurer, sourceConfig, getJDBCPluginId());
     sourceConfig.validate();
     if (!Strings.isNullOrEmpty(sourceConfig.schema)) {
       pipelineConfigurer.getStageConfigurer().setOutputSchema(sourceConfig.getSchema());
@@ -142,41 +140,37 @@ public class DBSource extends ReferenceBatchSource<LongWritable, DBRecord, Struc
                                                       EndpointPluginContext pluginContext)
     throws IllegalAccessException, InstantiationException, SQLException {
 
-    final DBProvider dbType = getDBType();
-
     Class<? extends Driver> driverClass =
-      pluginContext.loadPluginClass(dbType.getJdbcPluginType(),
-                                    dbType.getJdbcPluginName(), PluginProperties.builder().build());
+      pluginContext.loadPluginClass(ConnectionConfig.JDBC_PLUGIN_TYPE,
+                                    getJdbcDriverName(), PluginProperties.builder().build());
 
     if (driverClass == null) {
       throw new InstantiationException(
         String.format("Unable to load Driver class with plugin type %s and plugin name %s",
-                      dbType.getJdbcPluginType(), dbType.getJdbcPluginName()));
+                      ConnectionConfig.JDBC_PLUGIN_TYPE, getJdbcDriverName()));
     }
 
     try {
       return DBUtils.ensureJDBCDriverIsAvailable(
         driverClass,
-        DBUtils.createConnectionString(
-          request.host, request.port, request.database, dbType),
-        dbType.getJdbcPluginName(),
-        dbType.getJdbcPluginName());
-
+        DBUtils.createConnectionString(request.host, request.port, request.database, getJdbcDriverName()),
+        ConnectionConfig.JDBC_PLUGIN_TYPE,
+        getJdbcDriverName());
     } catch (IllegalAccessException | InstantiationException | SQLException e) {
       LOG.error("Unable to load or register driver {}", driverClass, e);
       throw e;
     }
   }
 
-  private DBProvider getDBType() {
+  @Override
+  public String getJdbcDriverName() {
     Name annotation = this.getClass().getAnnotation(Name.class);
 
     if (annotation == null) {
       LOG.error("Can't get Database type");
-      throw new RuntimeException("can't get database type");
-
+      throw new RuntimeException("Сan't get database type");
     } else {
-      return DBProvider.fromString(annotation.value());
+      return annotation.value().toLowerCase();
     }
   }
 
@@ -187,8 +181,8 @@ public class DBSource extends ReferenceBatchSource<LongWritable, DBRecord, Struc
                                               getSchemaRequest.password);
 
     return DriverManager.getConnection(
-      DBUtils.createConnectionString(
-        getSchemaRequest.host, getSchemaRequest.port, getSchemaRequest.database, getDBType()), properties);
+      DBUtils.createConnectionString(getSchemaRequest.host, getSchemaRequest.port,
+                                     getSchemaRequest.database, getJdbcDriverName()), properties);
   }
 
   @Override
@@ -197,7 +191,7 @@ public class DBSource extends ReferenceBatchSource<LongWritable, DBRecord, Struc
 
     LOG.debug("pluginType = {}; pluginName = {}; connectionString = {}; importQuery = {}; " +
                 "boundingQuery = {}; transaction isolation level: {}",
-              sourceConfig.getDBProvider().getJdbcPluginType(), sourceConfig.getDBProvider().getJdbcPluginName(),
+              ConnectionConfig.JDBC_PLUGIN_TYPE, sourceConfig.getJdbcDriverName(),
               DBUtils.createConnectionString(sourceConfig),
               sourceConfig.getImportQuery(), sourceConfig.getBoundingQuery());
     Configuration hConf = new Configuration();
@@ -256,14 +250,11 @@ public class DBSource extends ReferenceBatchSource<LongWritable, DBRecord, Struc
     try {
       DBUtils.cleanup(driverClass);
     } finally {
-      dbManager.destroy();
     }
   }
 
   private String getJDBCPluginId() {
-    return String.format("%s.%s.%s", "source", sourceConfig.getDBProvider().getJdbcPluginType(),
-                         sourceConfig.getDBProvider()
-      .getJdbcPluginName());
+    return String.format("%s.%s.%s", "source", ConnectionConfig.JDBC_PLUGIN_TYPE, sourceConfig.getJdbcDriverName());
   }
 
   /**
@@ -381,13 +372,6 @@ public class DBSource extends ReferenceBatchSource<LongWritable, DBRecord, Struc
     public String user;
     @Nullable
     public String password;
-    public String jdbcPluginName;
-    @Nullable
-    public String jdbcPluginType;
     public String query;
-
-    private String getJDBCPluginType() {
-      return jdbcPluginType == null ? "jdbc" : jdbcPluginType;
-    }
   }
 }

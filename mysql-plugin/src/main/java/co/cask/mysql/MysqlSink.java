@@ -14,39 +14,29 @@
  * the License.
  */
 
-package co.cask;
+package co.cask.mysql;
 
 import co.cask.cdap.api.annotation.Description;
 import co.cask.cdap.api.annotation.Name;
 import co.cask.cdap.api.annotation.Plugin;
-import co.cask.cdap.api.data.format.StructuredRecord;
-import co.cask.cdap.api.dataset.lib.KeyValue;
-import co.cask.cdap.etl.api.Emitter;
-import co.cask.cdap.etl.api.PipelineConfigurer;
-import co.cask.cdap.etl.api.batch.BatchRuntimeContext;
 import co.cask.cdap.etl.api.batch.BatchSink;
-import co.cask.cdap.etl.api.batch.BatchSinkContext;
 import co.cask.db.batch.sink.DBSink;
 import com.google.common.collect.ImmutableMap;
-import org.apache.hadoop.io.NullWritable;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.util.Map;
 
-import static co.cask.MysqlConstants.AUTO_RECONNECT;
-import static co.cask.MysqlConstants.PLUGIN_NAME;
+import static co.cask.mysql.MysqlConstants.AUTO_RECONNECT;
+import static co.cask.mysql.MysqlConstants.PLUGIN_NAME;
 
 
 /**
- * Sink support for a mysql database.
+ * Sink support for a MySQL database.
  */
 @Plugin(type = BatchSink.PLUGIN_TYPE)
 @Name(PLUGIN_NAME)
-@Description("Writes records to a mysql table. Each record will be written in a row in the table")
+@Description("Writes records to a MySQL table. Each record will be written in a row in the table")
 public class MysqlSink extends DBSink {
 
-  private static final Logger LOG = LoggerFactory.getLogger(MysqlSink.class);
   private final MysqlSinkConfig mysqlSinkConfig;
 
   public MysqlSink(MysqlSinkConfig dbSinkConfig) {
@@ -54,34 +44,8 @@ public class MysqlSink extends DBSink {
     mysqlSinkConfig = dbSinkConfig;
   }
 
-  @Override
-  public void configurePipeline(PipelineConfigurer pipelineConfigurer) {
-    super.configurePipeline(pipelineConfigurer);
-  }
-
-  @Override
-  public void prepareRun(BatchSinkContext context) {
-    super.prepareRun(context);
-  }
-
-  @Override
-  public void initialize(BatchRuntimeContext context) throws Exception {
-    super.initialize(context);
-  }
-
-  @Override
-  public void transform(StructuredRecord input, Emitter<KeyValue<DBRecord, NullWritable>> emitter) throws Exception {
-    super.transform(input, emitter);
-  }
-
-  @Override
-  public void destroy() {
-    super.destroy();
-  }
-
-
   /**
-   *  Mysql action configuration.
+   * MySQL action configuration.
    */
   public static class MysqlSinkConfig extends DBSinkConfig implements MysqlConfig {
     @Name(AUTO_RECONNECT)

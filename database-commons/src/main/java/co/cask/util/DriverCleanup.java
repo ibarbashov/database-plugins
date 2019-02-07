@@ -14,8 +14,9 @@
  * the License.
  */
 
-package co.cask;
+package co.cask.util;
 
+import co.cask.JDBCDriverShim;
 import co.cask.cdap.etl.api.Destroyable;
 import com.google.common.base.Throwables;
 

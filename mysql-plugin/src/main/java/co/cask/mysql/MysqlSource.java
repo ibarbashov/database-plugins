@@ -14,25 +14,23 @@
  * the License.
  */
 
-package co.cask;
+package co.cask.mysql;
 
 import co.cask.cdap.api.annotation.Description;
 import co.cask.cdap.api.annotation.Name;
 import co.cask.cdap.api.annotation.Plugin;
 import co.cask.db.batch.source.DBSource;
 import com.google.common.collect.ImmutableMap;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.util.Map;
 import javax.annotation.Nullable;
 
-import static co.cask.MysqlConstants.AUTO_RECONNECT;
-import static co.cask.MysqlConstants.MAX_ROWS;
-import static co.cask.MysqlConstants.PLUGIN_NAME;
+import static co.cask.mysql.MysqlConstants.AUTO_RECONNECT;
+import static co.cask.mysql.MysqlConstants.MAX_ROWS;
+import static co.cask.mysql.MysqlConstants.PLUGIN_NAME;
 
 /**
- * Batch source to read from Mysql.
+ * Batch source to read from MySQL.
  */
 @Plugin(type = "batchsource")
 @Name(PLUGIN_NAME)
@@ -40,7 +38,6 @@ import static co.cask.MysqlConstants.PLUGIN_NAME;
   " Outputs one record for each row returned by the query.")
 public class MysqlSource extends DBSource {
 
-  private static final Logger LOG = LoggerFactory.getLogger(MysqlSource.class);
   private final MysqlSourceConfig mysqlConfig;
 
   public MysqlSource(MysqlSourceConfig sourceConfig) {
@@ -49,7 +46,7 @@ public class MysqlSource extends DBSource {
   }
 
   /**
-   * Mysql source config.
+   * MySQL source config.
    */
   public static class MysqlSourceConfig extends DBSourceConfig implements MysqlConfig {
     @Name(AUTO_RECONNECT)

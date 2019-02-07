@@ -16,7 +16,6 @@
 
 package co.cask.db.batch.sink;
 
-import co.cask.DBProvider;
 import co.cask.DBRecord;
 import co.cask.cdap.api.data.format.StructuredRecord;
 import co.cask.cdap.api.data.schema.Schema;
@@ -152,8 +151,8 @@ public class DBSinkTest {
     }
 
     @Override
-    public DBProvider getDBProvider() {
-      return DBProvider.MYSQL;
+    public String getJdbcDriverName() {
+      return "mydb";
     }
   }
 }

@@ -14,18 +14,16 @@
  * the License.
  */
 
-package co.cask;
+package co.cask.mysql;
+
+import co.cask.JDBCDriverNameProvider;
 
 /**
- * Mysql Constants.
+ * Driver name provider for MySQL database.
  */
-public final class MysqlConstants {
-  private MysqlConstants() {
-    throw new AssertionError("Should not instantiate static utility class.");
+public interface MysqlConfig extends JDBCDriverNameProvider {
+  @Override
+  default String getJdbcDriverName() {
+    return MysqlConstants.DRIVER_NAME;
   }
-
-  public static final String PLUGIN_NAME = "Mysql";
-  public static final String AUTO_RECONNECT = "autoReconnect";
-  public static final String ALLOW_MULTIPLE_QUERIES = "allowMultiQueries";
-  public static final String MAX_ROWS = "maxRows";
 }

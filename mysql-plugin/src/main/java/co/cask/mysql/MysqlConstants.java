@@ -14,16 +14,19 @@
  * the License.
  */
 
-package co.cask;
-
-import static co.cask.DBProvider.MYSQL;
+package co.cask.mysql;
 
 /**
- * Mysql config class representation.
+ * MySQL Constants.
  */
-public interface MysqlConfig extends DBProviderAware {
-  @Override
-  default DBProvider getDBProvider() {
-    return MYSQL;
+public final class MysqlConstants {
+  private MysqlConstants() {
+    throw new AssertionError("Should not instantiate static utility class.");
   }
+
+  public static final String PLUGIN_NAME = "Mysql";
+  public static final String DRIVER_NAME = "mysql";
+  public static final String AUTO_RECONNECT = "autoReconnect";
+  public static final String ALLOW_MULTIPLE_QUERIES = "allowMultiQueries";
+  public static final String MAX_ROWS = "maxRows";
 }

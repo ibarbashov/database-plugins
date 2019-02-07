@@ -16,9 +16,10 @@
 
 package co.cask;
 
+
 /**
- * Provides db-specific config.
+ * Provides DB-specific driver name.
  */
-public interface DBProviderAware {
-  DBProvider getDBProvider();
+public interface JDBCDriverNameProvider {
+  String getJdbcDriverName();
 }

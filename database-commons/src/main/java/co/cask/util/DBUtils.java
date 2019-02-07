@@ -14,10 +14,15 @@
  * the License.
  */
 
-package co.cask;
+package co.cask.util;
 
+import co.cask.ConnectionConfig;
+import co.cask.JDBCDriverShim;
 import co.cask.cdap.api.data.schema.Schema;
 import co.cask.cdap.api.data.schema.UnsupportedTypeException;
+import co.cask.cdap.api.plugin.PluginProperties;
+import co.cask.cdap.etl.api.PipelineConfigurer;
+import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.collect.Lists;
 import org.slf4j.Logger;
@@ -327,6 +332,22 @@ public final class DBUtils {
     }
   }
 
+  public static void validateJDBCPluginPipeline(PipelineConfigurer pipelineConfigurer,
+                                                ConnectionConfig config, String jdbcPluginId) {
+    Preconditions.checkArgument(!(config.user == null && config.password != null),
+                                "user is null. Please provide both user name and password if database requires " +
+                                  "authentication. If not, please remove password and retry.");
+    Class<? extends Driver> jdbcDriverClass = pipelineConfigurer.usePluginClass(
+      ConnectionConfig.JDBC_PLUGIN_TYPE,
+      config.getJdbcDriverName(),
+      jdbcPluginId, PluginProperties.builder().build());
+    Preconditions.checkArgument(
+      jdbcDriverClass != null, "Unable to load JDBC Driver class for plugin name '%s'. Please make sure that the " +
+        "plugin '%s' of type '%s' containing the driver has been installed correctly.",
+      config.getJdbcDriverName(),
+      config.getJdbcDriverName(), ConnectionConfig.JDBC_PLUGIN_TYPE);
+  }
+
   /**
    * Shuts down a cleanup thread com.mysql.jdbc.AbandonedConnectionCleanupThread that mysql driver fails to destroy
    * If this is not done, the thread keeps a reference to the classloader, thereby causing OOMs or too many open files
@@ -393,11 +414,11 @@ public final class DBUtils {
   }
 
   public static String createConnectionString(ConnectionConfig config) {
-    return createConnectionString(config.host, config.port, config.database, config.getDBProvider());
+    return createConnectionString(config.host, config.port, config.database, config.getJdbcDriverName());
   }
 
-  public static String createConnectionString(String host, int port, String database, DBProvider type) {
-    return type.getJdbcPluginType() + ":" + type.getJdbcPluginName() + "://"
+  public static String createConnectionString(String host, int port, String database, String jdbcPluginName) {
+    return ConnectionConfig.JDBC_PLUGIN_TYPE + ":" + jdbcPluginName + "://"
       + host + ":" + port + "/" + database;
   }
 

@@ -58,7 +58,7 @@ public class DBConfigTest {
     }
 
     @Override
-    public DBProvider getDBProvider() {
+    public String getJdbcDriverName() {
       return null;
     }
   }

@@ -16,8 +16,9 @@
 
 package co.cask.db.batch.action;
 
-import co.cask.DBManager;
-import co.cask.DBUtils;
+import co.cask.ConnectionConfig;
+import co.cask.util.DBUtils;
+import co.cask.util.DriverCleanup;
 
 import java.sql.Connection;
 import java.sql.Driver;
@@ -42,10 +43,12 @@ public class DBRun {
    * to use and which connection string to use come from the plugin configuration.
    */
   public void run() throws SQLException, InstantiationException, IllegalAccessException {
-    DBManager dbManager = new DBManager(config);
-
+    DriverCleanup driverCleanup = null;
     try {
-      dbManager.ensureJDBCDriverIsAvailable(driverClass);
+      driverCleanup = DBUtils.ensureJDBCDriverIsAvailable(driverClass,
+                                                          DBUtils.createConnectionString(config),
+                                                          ConnectionConfig.JDBC_PLUGIN_TYPE,
+                                                          config.getJdbcDriverName());
 
       try (Connection connection = getConnection()) {
         try (Statement statement = connection.createStatement()) {
@@ -53,7 +56,9 @@ public class DBRun {
         }
       }
     } finally {
-      dbManager.destroy();
+      if (driverCleanup != null) {
+        driverCleanup.destroy();
+      }
     }
   }
 
