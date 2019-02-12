@@ -30,6 +30,13 @@
 
   <dependencies>
     <dependency>
+      <groupId>co.cask</groupId>
+      <artifactId>generic-database-plugin</artifactId>
+      <version>${project.version}</version>
+      <type>test-jar</type>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
       <groupId>co.cask.cdap</groupId>
       <artifactId>cdap-etl-api</artifactId>
     </dependency>
@@ -75,6 +82,12 @@
       <artifactId>annotations</artifactId>
       <version>RELEASE</version>
       <scope>compile</scope>
+    </dependency>
+    <dependency>
+      <groupId>mysql</groupId>
+      <artifactId>mysql-connector-java</artifactId>
+      <version>8.0.15</version>
+      <scope>test</scope>
     </dependency>
   </dependencies>
 

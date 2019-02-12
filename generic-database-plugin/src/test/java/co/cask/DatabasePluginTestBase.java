@@ -85,7 +85,7 @@ public class DatabasePluginTestBase extends HydratorTestBase {
   private static HSQLDBServer hsqlDBServer;
   protected static Schema schema;
   //  private static Schema schema;
-  static boolean tearDown = true;
+  protected static boolean tearDown = true;
 
   @ClassRule
   public static TemporaryFolder temporaryFolder = new TemporaryFolder();
@@ -269,7 +269,7 @@ public class DatabasePluginTestBase extends HydratorTestBase {
     throws Exception {
     ETLStage source = new ETLStage("source", sourcePlugin);
     ETLStage sink = new ETLStage("sink", sinkPlugin);
-    ETLBatchConfig etlConfig = ETLBatchConfig.builder("* * * * *")
+    ETLBatchConfig etlConfig = ETLBatchConfig.builder()
       .addStage(source)
       .addStage(sink)
       .addConnection(source.getName(), sink.getName())
