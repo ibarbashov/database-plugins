@@ -23,7 +23,7 @@ import co.cask.cdap.etl.api.batch.BatchSink;
 import co.cask.cdap.etl.mock.batch.MockSource;
 import co.cask.cdap.etl.proto.v2.ETLPlugin;
 import co.cask.cdap.test.DataSetManager;
-import co.cask.db.batch.sink.DBSink;
+import co.cask.db.batch.sink.AbstractDBSink;
 import co.cask.hydrator.common.Constants;
 import com.google.common.base.Charsets;
 import com.google.common.collect.ImmutableMap;
@@ -62,7 +62,7 @@ public class MysqlSinkTestRun extends MysqlPluginTestBase {
       ImmutableMap.<String, String>builder()
         .putAll(BASE_PROPS)
         .put("autoReconnect", "true")
-        .put(DBSink.DBSinkConfig.TABLE_NAME, "MY_DEST_TABLE")
+        .put(AbstractDBSink.DBSinkConfig.TABLE_NAME, "MY_DEST_TABLE")
         .put(Constants.Reference.REFERENCE_NAME, "DBTest")
         .build(),
       null);

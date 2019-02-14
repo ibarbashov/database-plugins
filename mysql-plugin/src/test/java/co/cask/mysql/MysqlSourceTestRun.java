@@ -30,7 +30,7 @@ import co.cask.cdap.proto.id.ApplicationId;
 import co.cask.cdap.proto.id.NamespaceId;
 import co.cask.cdap.test.ApplicationManager;
 import co.cask.cdap.test.DataSetManager;
-import co.cask.db.batch.source.DBSource;
+import co.cask.db.batch.source.AbstractDBSource;
 import co.cask.hydrator.common.Constants;
 import com.google.common.collect.ImmutableMap;
 import org.junit.Assert;
@@ -63,9 +63,9 @@ public class MysqlSourceTestRun extends MysqlPluginTestBase {
       .putAll(BASE_PROPS)
       .put("autoReconnect", "true")
       .put("maxRows", "0")
-      .put(DBSource.DBSourceConfig.IMPORT_QUERY, importQuery)
-      .put(DBSource.DBSourceConfig.BOUNDING_QUERY, boundingQuery)
-      .put(DBSource.DBSourceConfig.SPLIT_BY, splitBy)
+      .put(AbstractDBSource.DBSourceConfig.IMPORT_QUERY, importQuery)
+      .put(AbstractDBSource.DBSourceConfig.BOUNDING_QUERY, boundingQuery)
+      .put(AbstractDBSource.DBSourceConfig.SPLIT_BY, splitBy)
       .put(Constants.Reference.REFERENCE_NAME, "DBTestSource").build();
 
     ETLPlugin sourceConfig = new ETLPlugin(
@@ -99,9 +99,9 @@ public class MysqlSourceTestRun extends MysqlPluginTestBase {
         .putAll(BASE_PROPS)
         .put("autoReconnect", "true")
         .put("maxRows", "0")
-        .put(DBSource.DBSourceConfig.IMPORT_QUERY, importQuery)
-        .put(DBSource.DBSourceConfig.BOUNDING_QUERY, boundingQuery)
-        .put(DBSource.DBSourceConfig.SPLIT_BY, splitBy)
+        .put(AbstractDBSource.DBSourceConfig.IMPORT_QUERY, importQuery)
+        .put(AbstractDBSource.DBSourceConfig.BOUNDING_QUERY, boundingQuery)
+        .put(AbstractDBSource.DBSourceConfig.SPLIT_BY, splitBy)
         .put(Constants.Reference.REFERENCE_NAME, "DBSourceTest")
         .build(),
       null
@@ -194,9 +194,9 @@ public class MysqlSourceTestRun extends MysqlPluginTestBase {
       ImmutableMap.<String, String>builder()
         .putAll(BASE_PROPS)
         .put("autoReconnect", "true")
-        .put(DBSource.DBSourceConfig.IMPORT_QUERY, importQuery)
-        .put(DBSource.DBSourceConfig.BOUNDING_QUERY, boundingQuery)
-        .put(DBSource.DBSourceConfig.SPLIT_BY, splitBy)
+        .put(AbstractDBSource.DBSourceConfig.IMPORT_QUERY, importQuery)
+        .put(AbstractDBSource.DBSourceConfig.BOUNDING_QUERY, boundingQuery)
+        .put(AbstractDBSource.DBSourceConfig.SPLIT_BY, splitBy)
         .put(Constants.Reference.REFERENCE_NAME, "DBMultipleTest")
         .build(),
       null
@@ -236,9 +236,9 @@ public class MysqlSourceTestRun extends MysqlPluginTestBase {
       .put("database", BASE_PROPS.get("database"))
       .put("autoReconnect", "true")
       .put("jdbcDriverName", JDBC_DRIVER_NAME)
-      .put(DBSource.DBSourceConfig.IMPORT_QUERY, importQuery)
-      .put(DBSource.DBSourceConfig.BOUNDING_QUERY, boundingQuery)
-      .put(DBSource.DBSourceConfig.SPLIT_BY, splitBy)
+      .put(AbstractDBSource.DBSourceConfig.IMPORT_QUERY, importQuery)
+      .put(AbstractDBSource.DBSourceConfig.BOUNDING_QUERY, boundingQuery)
+      .put(AbstractDBSource.DBSourceConfig.SPLIT_BY, splitBy)
       .put(Constants.Reference.REFERENCE_NAME, "UserPassDBTest")
       .build();
 
@@ -298,9 +298,9 @@ public class MysqlSourceTestRun extends MysqlPluginTestBase {
       ImmutableMap.<String, String>builder()
         .putAll(BASE_PROPS)
         .put("autoReconnect", "true")
-        .put(DBSource.DBSourceConfig.IMPORT_QUERY, importQuery)
-        .put(DBSource.DBSourceConfig.BOUNDING_QUERY, boundingQuery)
-        .put(DBSource.DBSourceConfig.SPLIT_BY, splitBy)
+        .put(AbstractDBSource.DBSourceConfig.IMPORT_QUERY, importQuery)
+        .put(AbstractDBSource.DBSourceConfig.BOUNDING_QUERY, boundingQuery)
+        .put(AbstractDBSource.DBSourceConfig.SPLIT_BY, splitBy)
         .put(Constants.Reference.REFERENCE_NAME, "DBNonExistentTest")
         .build(),
       null);
@@ -328,9 +328,9 @@ public class MysqlSourceTestRun extends MysqlPluginTestBase {
         .put("password", BASE_PROPS.get("password"))
         .put("autoReconnect", "true")
         .put("jdbcDriverName", JDBC_DRIVER_NAME)
-        .put(DBSource.DBSourceConfig.IMPORT_QUERY, importQuery)
-        .put(DBSource.DBSourceConfig.BOUNDING_QUERY, boundingQuery)
-        .put(DBSource.DBSourceConfig.SPLIT_BY, splitBy)
+        .put(AbstractDBSource.DBSourceConfig.IMPORT_QUERY, importQuery)
+        .put(AbstractDBSource.DBSourceConfig.BOUNDING_QUERY, boundingQuery)
+        .put(AbstractDBSource.DBSourceConfig.SPLIT_BY, splitBy)
         .put(Constants.Reference.REFERENCE_NAME, "MySQLTest")
         .build(),
       null);
