@@ -166,12 +166,12 @@ public abstract class AbstractDBSink extends ReferenceBatchSink<StructuredRecord
   }
 
   @Override
-  public void transform(StructuredRecord input, Emitter<KeyValue<DBRecord, NullWritable>> emitter) throws Exception {
+  public void transform(StructuredRecord input, Emitter<KeyValue<DBRecord, NullWritable>> emitter) {
     // Create StructuredRecord that only has the columns in this.columns
     List<Schema.Field> outputFields = new ArrayList<>();
-    for (String column : columns) {
-      Schema.Field field = input.getSchema().getField(column);
-      Preconditions.checkNotNull(field, "Column '%s' not found in an input record", column);
+    for (Schema.Field field: input.getSchema().getFields()) {
+      Preconditions.checkArgument(columns.contains(field.getName()), "Column not found for input field '%s'",
+                                  field.getName());
       outputFields.add(field);
     }
     StructuredRecord.Builder output = StructuredRecord.builder(
@@ -293,7 +293,7 @@ public abstract class AbstractDBSink extends ReferenceBatchSink<StructuredRecord
       if (isNotCompatible) {
         invalidFields.add(field.getName());
         LOG.error("Field {} was given as type {} but the database column is actually of type {}.", field.getName(),
-                  field.getSchema().getType(), columnSchema.getType());
+                  fieldType, columnSchema.getType());
       }
       if (isNotNullAssignable) {
         invalidFields.add(field.getName());
