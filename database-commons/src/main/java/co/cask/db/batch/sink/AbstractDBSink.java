@@ -80,6 +80,7 @@ public abstract class AbstractDBSink extends ReferenceBatchSink<StructuredRecord
   private DriverCleanup driverCleanup;
   protected int[] columnTypes;
   protected List<String> columns;
+  protected String dbColumns;
   private Schema outputSchema;
 
   public AbstractDBSink(DBSinkConfig dbSinkConfig) {
@@ -127,13 +128,21 @@ public abstract class AbstractDBSink extends ReferenceBatchSink<StructuredRecord
     emitLineage(context, outputSchema.getFields());
 
     context.addOutput(Output.of(dbSinkConfig.referenceName, new DBOutputFormatProvider(
-      dbSinkConfig, connectionString, String.join(",", columns), driverClass)));
+      dbSinkConfig, connectionString, dbColumns, driverClass)));
   }
 
-  private void setColumnsInfo(List<Schema.Field> fields) {
+  /**
+   * Extracts column info from input schema. It is then used for metadata retrieval
+   * and insert query generation. Override this method if you need to escape column names
+   * for databases with case-sensitive identifiers
+   * @param fields input schema fields
+   */
+  protected void setColumnsInfo(List<Schema.Field> fields) {
     columns = fields.stream()
       .map(Schema.Field::getName)
       .collect(Collectors.collectingAndThen(Collectors.toList(), Collections::unmodifiableList));
+
+    dbColumns = String.join(",", columns);
   }
 
   @Override
@@ -215,7 +224,7 @@ public abstract class AbstractDBSink extends ReferenceBatchSink<StructuredRecord
            // Run a query against the DB table that returns 0 records, but returns valid ResultSetMetadata
            // that can be used to construct DBRecord objects to sink to the database table.
            ResultSet rs = statement.executeQuery(String.format("SELECT %s FROM %s WHERE 1 = 0",
-                                                               String.join(",", columns),
+                                                               dbColumns,
                                                                dbSinkConfig.tableName))
       ) {
         ResultSetMetaData resultSetMetadata = rs.getMetaData();
