@@ -80,7 +80,7 @@ public abstract class AbstractDBSink extends ReferenceBatchSink<StructuredRecord
   private DriverCleanup driverCleanup;
   protected int[] columnTypes;
   protected List<String> columns;
-  private String dbColumns;
+  private Schema outputSchema;
 
   public AbstractDBSink(DBSinkConfig dbSinkConfig) {
     super(new ReferencePluginConfig(dbSinkConfig.referenceName));
@@ -107,44 +107,42 @@ public abstract class AbstractDBSink extends ReferenceBatchSink<StructuredRecord
               dbSinkConfig.jdbcPluginName,
               connectionString);
 
-    Schema inputSchema = context.getInputSchema();
+    outputSchema = context.getInputSchema();
 
     // Load the plugin class to make sure it is available.
     Class<? extends Driver> driverClass = context.loadPluginClass(getJDBCPluginId());
     // make sure that the destination table exists and column types are correct
     try {
       if (Objects.nonNull(context.getInputSchema())) {
-        validateSchema(driverClass, dbSinkConfig.tableName, inputSchema);
+        validateSchema(driverClass, dbSinkConfig.tableName, outputSchema);
       } else {
-        inputSchema = inferSchema(driverClass);
+        outputSchema = inferSchema(driverClass);
       }
     } finally {
       DBUtils.cleanup(driverClass);
     }
 
-    setColumnsInfo(inputSchema.getFields());
+    setColumnsInfo(outputSchema.getFields());
 
-    emitLineage(context, inputSchema.getFields());
+    emitLineage(context, outputSchema.getFields());
 
-    context.addOutput(Output.of(dbSinkConfig.referenceName,
-                                new DBOutputFormatProvider(dbSinkConfig, connectionString, dbColumns, driverClass)));
+    context.addOutput(Output.of(dbSinkConfig.referenceName, new DBOutputFormatProvider(
+      dbSinkConfig, connectionString, String.join(",", columns), driverClass)));
   }
 
   private void setColumnsInfo(List<Schema.Field> fields) {
     columns = fields.stream()
       .map(Schema.Field::getName)
       .collect(Collectors.collectingAndThen(Collectors.toList(), Collections::unmodifiableList));
-
-    dbColumns = String.join(",", columns);
   }
 
   @Override
   public void initialize(BatchRuntimeContext context) throws Exception {
     super.initialize(context);
     driverClass = context.loadPluginClass(getJDBCPluginId());
-    Schema inputSchema = Optional.ofNullable(context.getInputSchema()).orElse(inferSchema(driverClass));
+    outputSchema = Optional.ofNullable(context.getInputSchema()).orElse(inferSchema(driverClass));
 
-    setColumnsInfo(inputSchema.getFields());
+    setColumnsInfo(outputSchema.getFields());
     setResultSetMetadata();
   }
 
@@ -157,6 +155,8 @@ public abstract class AbstractDBSink extends ReferenceBatchSink<StructuredRecord
            Statement statement = connection.createStatement();
            ResultSet rs = statement.executeQuery("SELECT * FROM " + dbSinkConfig.tableName + " WHERE 1 = 0")) {
         inferredFields.addAll(getSchemaReader().getSchemaFields(rs));
+      } catch (SQLException e) {
+        LOG.error("Error reading table metadata:", e);
       }
     } catch (IllegalAccessException | InstantiationException | SQLException e) {
       LOG.error("Error occurred while trying to infer input schema for DBSink[referenceName={}].",
@@ -174,8 +174,7 @@ public abstract class AbstractDBSink extends ReferenceBatchSink<StructuredRecord
                                   field.getName());
       outputFields.add(field);
     }
-    StructuredRecord.Builder output = StructuredRecord.builder(
-      Schema.recordOf(input.getSchema().getRecordName(), outputFields));
+    StructuredRecord.Builder output = StructuredRecord.builder(outputSchema);
     for (String column : columns) {
       output.set(column, input.get(column));
     }
@@ -216,7 +215,7 @@ public abstract class AbstractDBSink extends ReferenceBatchSink<StructuredRecord
            // Run a query against the DB table that returns 0 records, but returns valid ResultSetMetadata
            // that can be used to construct DBRecord objects to sink to the database table.
            ResultSet rs = statement.executeQuery(String.format("SELECT %s FROM %s WHERE 1 = 0",
-                                                               dbColumns,
+                                                               String.join(",", columns),
                                                                dbSinkConfig.tableName))
       ) {
         ResultSetMetaData resultSetMetadata = rs.getMetaData();
