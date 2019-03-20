@@ -25,6 +25,7 @@ import co.cask.db.batch.sink.AbstractDBSink;
 import com.google.common.collect.ImmutableMap;
 
 import java.util.Map;
+import javax.annotation.Nullable;
 
 
 /**
@@ -48,7 +49,8 @@ public class MysqlSink extends AbstractDBSink {
   public static class MysqlSinkConfig extends DBSpecificSinkConfig {
     @Name(MysqlConstants.AUTO_RECONNECT)
     @Description("Should the driver try to re-establish stale and/or dead connections")
-    public Boolean autoReconnect;
+    @Nullable
+    public Boolean autoReconnect = false;
 
     @Override
     public String getConnectionString() {

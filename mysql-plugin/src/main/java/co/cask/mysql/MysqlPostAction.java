@@ -25,6 +25,7 @@ import co.cask.db.batch.config.DBSpecificQueryActionConfig;
 import com.google.common.collect.ImmutableMap;
 
 import java.util.Map;
+import javax.annotation.Nullable;
 
 /**
  * Represents MySQL post action.
@@ -48,7 +49,8 @@ public class MysqlPostAction extends AbstractQueryAction {
 
     @Name(MysqlConstants.AUTO_RECONNECT)
     @Description("Should the driver try to re-establish stale and/or dead connections")
-    public Boolean autoReconnect;
+    @Nullable
+    public Boolean autoReconnect = false;
 
     @Override
     public String getConnectionString() {

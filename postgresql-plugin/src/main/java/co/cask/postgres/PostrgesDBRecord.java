@@ -14,7 +14,7 @@
  * the License.
  */
 
-package co.cask.oracle;
+package co.cask.postgres;
 
 import co.cask.DBRecord;
 import co.cask.SchemaReader;
@@ -23,16 +23,13 @@ import co.cask.cdap.api.data.schema.Schema;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.time.Instant;
-import java.time.ZoneId;
-import java.time.ZoneOffset;
 
 /**
- * Writable class for Oracle Source/Sink
+ * Writable class for PostgreSQL Source/Sink
  */
-public class OracleDBRecord extends DBRecord {
+public class PostrgesDBRecord extends DBRecord {
 
-  public OracleDBRecord(StructuredRecord record, int[] columnTypes) {
+  public PostrgesDBRecord(StructuredRecord record, int[] columnTypes) {
     this.record = record;
     this.columnTypes = columnTypes;
   }
@@ -41,18 +38,12 @@ public class OracleDBRecord extends DBRecord {
    * Used in map-reduce. Do not remove.
    */
   @SuppressWarnings("unused")
-  public OracleDBRecord() {
-  }
-
-  @Override
-  protected SchemaReader getSchemaReader() {
-    return new OracleSchemaReader();
-  }
+  public PostrgesDBRecord() {}
 
   @Override
   protected void handleField(ResultSet resultSet, StructuredRecord.Builder recordBuilder, Schema.Field field,
                              int sqlType, int sqlPrecision, int sqlScale) throws SQLException {
-    if (OracleSchemaReader.ORACLE_TYPES.contains(sqlType)) {
+    if (PostgresSchemaReader.POSTGRES_TYPES.contains(sqlType)) {
       handleOracleSpecificType(resultSet, recordBuilder, field, sqlType);
     } else {
       setField(resultSet, recordBuilder, field, sqlType, sqlPrecision, sqlScale);
@@ -62,17 +53,11 @@ public class OracleDBRecord extends DBRecord {
   private void handleOracleSpecificType(ResultSet resultSet,
                                         StructuredRecord.Builder recordBuilder, Schema.Field field,
                                         int sqlType) throws SQLException {
+    setFieldAccordingToSchema(resultSet, recordBuilder, field);
+  }
 
-    switch (sqlType) {
-      case OracleSchemaReader.INTERVAL_YM:
-      case OracleSchemaReader.INTERVAL_DS:
-        recordBuilder.set(field.getName(), resultSet.getString(field.getName()));
-        break;
-      case OracleSchemaReader.TIMESTAMP_LTZ:
-      case OracleSchemaReader.TIMESTAMP_TZ:
-        Instant instant = resultSet.getTimestamp(field.getName()).toInstant();
-        recordBuilder.setTimestamp(field.getName(), instant.atZone(ZoneId.ofOffset("UTC", ZoneOffset.UTC)));
-        break;
-    }
+  @Override
+  protected SchemaReader getSchemaReader() {
+    return new PostgresSchemaReader();
   }
 }

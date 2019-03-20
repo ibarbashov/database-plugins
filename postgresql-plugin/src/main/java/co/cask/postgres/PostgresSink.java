@@ -51,11 +51,11 @@ public class PostgresSink extends AbstractDBSink {
   @Override
   protected void setColumnsInfo(List<Schema.Field> fields) {
     List<String> columnsList = new ArrayList<>();
-    StringJoiner columnsJoiner = new StringJoiner(",", "\"", "\"");
+    StringJoiner columnsJoiner = new StringJoiner(",");
 
     for (Schema.Field field : fields) {
       columnsList.add(field.getName());
-      columnsJoiner.add(field.getName());
+      columnsJoiner.add("\"" + field.getName() + "\"");
     }
 
     super.columns = Collections.unmodifiableList(columnsList);

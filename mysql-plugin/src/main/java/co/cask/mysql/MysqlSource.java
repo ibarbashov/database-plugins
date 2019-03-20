@@ -24,6 +24,7 @@ import co.cask.db.batch.source.AbstractDBSource;
 import com.google.common.collect.ImmutableMap;
 
 import java.util.Map;
+import javax.annotation.Nullable;
 
 /**
  * Batch source to read from MySQL.
@@ -53,7 +54,8 @@ public class MysqlSource extends AbstractDBSource {
 
     @Name(MysqlConstants.AUTO_RECONNECT)
     @Description("Should the driver try to re-establish stale and/or dead connections")
-    public Boolean autoReconnect;
+    @Nullable
+    public Boolean autoReconnect = false;
 
     @Override
     public String getConnectionString() {

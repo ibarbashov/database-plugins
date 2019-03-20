@@ -25,6 +25,7 @@ import co.cask.db.batch.config.DBSpecificQueryConfig;
 import com.google.common.collect.ImmutableMap;
 
 import java.util.Map;
+import javax.annotation.Nullable;
 
 /**
  * Action that runs MySQL command.
@@ -48,7 +49,8 @@ public class MysqlAction extends AbstractDBAction {
 
     @Name(MysqlConstants.AUTO_RECONNECT)
     @Description("Should the driver try to re-establish stale and/or dead connections")
-    public Boolean autoReconnect;
+    @Nullable
+    public Boolean autoReconnect = false;
 
     @Override
     public String getConnectionString() {
