@@ -111,6 +111,38 @@
       "label": "Advanced",
       "properties": [
         {
+          "name": "connectionType",
+          "widget-type": "select",
+          "widget-attributes": {
+            "default": "Azure Active Directory",
+            "values": ["Azure Active Directory", "SQL Login"]
+          }
+        },
+        {
+          "widget-type": "select",
+          "label": "Azure Authentication Type",
+          "name": "azureAuthType",
+          "widget-attributes": {
+            "default": "SqlPassword",
+            "values": ["SqlPassword", "ActiveDirectoryMSI", "ActiveDirectoryIntegrated", "ActiveDirectoryPassword"]
+          }
+        },
+        {
+          "widget-type": "textbox",
+          "label": "MSI Client ID",
+          "name": "msiClientID"
+        },
+        {
+          "widget-type": "textbox",
+          "label": "Azure Driver Type",
+          "name": "azureDriverType"
+        },
+        {
+          "widget-type": "textbox",
+          "label": "Azure Driver Name",
+          "name": "azureDriverName"
+        },
+        {
           "widget-type": "keyvalue",
           "label": "Connection Arguments",
           "name": "connectionArguments",

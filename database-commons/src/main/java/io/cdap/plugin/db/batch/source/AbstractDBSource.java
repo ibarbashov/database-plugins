@@ -181,7 +181,7 @@ public abstract class AbstractDBSource extends ReferenceBatchSource<LongWritable
     }
   }
 
-  private Connection getConnection() throws SQLException {
+  protected Connection getConnection() throws SQLException {
     Properties properties =
       ConnectionConfig.getConnectionArguments(sourceConfig.connectionArguments,
                                               sourceConfig.user,

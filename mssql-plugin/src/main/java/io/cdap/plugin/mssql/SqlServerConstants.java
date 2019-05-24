@@ -29,4 +29,16 @@ public final class SqlServerConstants {
   public static final String INSTANCE_NAME = "instanceName";
   public static final String QUERY_TIMEOUT = "queryTimeout";
   public static final String SQL_SERVER_CONNECTION_STRING_FORMAT = "jdbc:sqlserver://%s:%s;databaseName=%s";
+  public static final String CONNECTION_TYPE = "connectionType";
+  public static final String AZURE_AD = "Azure Active Directory";
+  public static final String AZURE_DRIVER_NAME = "azureDriverName";
+  public static final String AZURE_DRIVER_TYPE = "azureDriverType";
+  public static final String AZURE_AUTH_TYPE = "azureAuthType";
+  public static final String MSI_CLIENT_ID = "msiClientID";
+
+  // auth types
+  public static final String ACTIVE_DIRECTORY_MSI = "ActiveDirectoryMSI";
+  public static final String ACTIVE_DIRECTORY_INTEGRATED = "ActiveDirectoryIntegrated";
+  public static final String ACTIVE_DIRECTORY_PASSWORD = "ActiveDirectoryPassword";
+  public static final String SQL_PASSWORD = "SqlPassword";
 }
