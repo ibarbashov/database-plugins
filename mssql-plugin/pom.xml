@@ -39,6 +39,11 @@
       <version>${project.version}</version>
     </dependency>
     <dependency>
+      <groupId>com.microsoft.azure</groupId>
+      <artifactId>adal4j</artifactId>
+      <version>1.6.4</version>
+    </dependency>
+    <dependency>
       <groupId>io.cdap.plugin</groupId>
       <artifactId>hydrator-common</artifactId>
     </dependency>
